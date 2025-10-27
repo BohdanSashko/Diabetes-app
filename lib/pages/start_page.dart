@@ -1,59 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../security/bio_auth.dart';
 import 'sign_up.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
 class StartPage extends StatefulWidget {
-  final String? initialEmail; // 👈 Email passed from BiometricAuth
+  final String initialEmail;
 
-  const StartPage({super.key, this.initialEmail});
+  const StartPage({super.key, required this.initialEmail});
 
   @override
   State<StartPage> createState() => _StartPageState();
 }
 
 class _StartPageState extends State<StartPage> {
-  late final Box usersBox;
-  late final Box sessionBox;
-  String? _email;
   String? _name;
+  String? _email;
 
   @override
   void initState() {
     super.initState();
-    usersBox = Hive.box('secure_users');
-    sessionBox = Hive.box('secure_session');
-
-    // Delay a bit to ensure Hive writes are finished
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 250));
-      _loadSession();
-    });
+    _email = widget.initialEmail;
+    _loadName();
   }
 
-  void _loadSession() {
-    // ✅ Use passed email first; fallback to Hive
-    final email = widget.initialEmail ?? sessionBox.get('currentUser') as String?;
-    if (email == null || email.isEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SignUpPage()),
-      );
-      return;
-    }
-
-    final record = usersBox.get(email);
-    final name = (record is Map) ? (record['name'] as String?) : null;
-
-    setState(() {
-      _email = email;
-      _name = name?.trim().isEmpty == true ? null : name;
-    });
+  Future<void> _loadName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    setState(() => _name = user?.displayName ?? '');
   }
 
-  void _signOut() {
-    sessionBox.delete('currentUser');
+  Future<void> _signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SignUpPage()),
@@ -61,28 +44,36 @@ class _StartPageState extends State<StartPage> {
     );
   }
 
+  ListTile _drawerTile(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: kBrandBlue),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final greeting = _name != null
-        ? 'Hi, $_name'
-        : (_email != null ? 'Hi, $_email' : 'Welcome');
+    final greeting = _name?.isNotEmpty == true
+        ? "Hi, $_name"
+        : "Hi, ${_email ?? 'Guest'}";
 
     return Scaffold(
       backgroundColor: const Color(0xFFE3F4FA),
+
       appBar: AppBar(
         title: const Text(
           'DiaWell',
           style: TextStyle(
-            color: Colors.white,
+            color: kBrandBlue,
             fontWeight: FontWeight.w800,
             fontSize: 24,
-            letterSpacing: 0.2,
           ),
         ),
         centerTitle: true,
-        backgroundColor: kBrandBlue,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: kBrandBlue),
       ),
 
       drawer: Drawer(
@@ -96,15 +87,24 @@ class _StartPageState extends State<StartPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.person, size: 42, color: kBrandBlue),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
-                      _name ?? 'User',
+                      _name?.isNotEmpty == true ? _name! : "User",
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Text(_email ?? '', style: const TextStyle(color: Colors.white70)),
+                    Text(
+                      _email ?? "",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 ),
               ),
@@ -115,10 +115,8 @@ class _StartPageState extends State<StartPage> {
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text(
-                  'Sign out',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
+                title: const Text('Sign out',
+                    style: TextStyle(color: Colors.redAccent)),
                 onTap: _signOut,
               ),
             ],
@@ -127,114 +125,104 @@ class _StartPageState extends State<StartPage> {
       ),
 
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ListView(
             children: [
-              const SizedBox(height: 8),
-              Text(
-                greeting,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  greeting,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
                 ),
               ),
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
+                      blurRadius: 20,
+                      color: Colors.black12,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _HomeTile(
+                      icon: Icons.monitor_heart_outlined,
+                      title: 'Log glucose',
+                      subtitle: 'Quickly add a reading',
+                    ),
+                    const Divider(height: 1),
+                    _HomeTile(
+                      icon: Icons.restaurant_menu_outlined,
+                      title: 'Meals & carbs',
+                      subtitle: 'Track meals and carbs',
+                    ),
+                    const Divider(height: 1),
+                    _HomeTile(
+                      icon: Icons.show_chart_outlined,
+                      title: 'View trends',
+                      subtitle: 'Insights over time',
+                    ),
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 16),
-              _mainCard(),
-              const SizedBox(height: 12),
-              _bottomButtons(),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.alarm),
+                      label: const Text('Reminders'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kBrandBlue,
+                        side: const BorderSide(
+                          color: kBrandBlue,
+                          width: 1.4,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.file_download),
+                      label: const Text('Export'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kBrandBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  // 🧩 Components
-  Widget _mainCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            blurRadius: 20,
-            color: Colors.black12,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: const [
-          _HomeTile(
-            icon: Icons.monitor_heart_outlined,
-            title: 'Log glucose',
-            subtitle: 'Quickly add a reading',
-          ),
-          Divider(height: 1),
-          _HomeTile(
-            icon: Icons.restaurant_menu_outlined,
-            title: 'Meals & carbs',
-            subtitle: 'Track meals and carbs',
-          ),
-          Divider(height: 1),
-          _HomeTile(
-            icon: Icons.show_chart_outlined,
-            title: 'View trends',
-            subtitle: 'Insights over time',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.alarm),
-            label: const Text('Reminders'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kBrandBlue,
-              side: const BorderSide(color: kBrandBlue, width: 1.4),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.file_download),
-            label: const Text('Export'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kBrandBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 4,
-              shadowColor: kBrandBlue.withOpacity(0.25),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  ListTile _drawerTile(IconData icon, String title, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: kBrandBlue),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      onTap: onTap,
     );
   }
 }
@@ -254,9 +242,8 @@ class _HomeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('TODO: $title')),
-      ),
+      onTap: () => ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('TODO: $title'))),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
@@ -275,9 +262,13 @@ class _HomeTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          fontSize: 13, color: Colors.black54)),
                 ],
               ),
             ),

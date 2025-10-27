@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "232350144475",
-    "project_id": "myapp-d3463",
-    "storage_bucket": "myapp-d3463.firebasestorage.app"
+    "project_number": "817290769095",
+    "project_id": "diabetes-24240",
+    "storage_bucket": "diabetes-24240.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:232350144475:android:5a265ccba7803c6f24f9fe",
+        "mobilesdk_app_id": "1:817290769095:android:d191823d1ebd1048d444e2",
         "android_client_info": {
           "package_name": "com.example.diabetes_app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAJh0j72arN4jNF1PPdp0Ic8unfA5x1dWM"
+          "current_key": "AIzaSyDsqdNDPPLl6q66J-GMDKbhvlbmHewfDoU"
         }
       ],
       "services": {
