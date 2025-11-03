@@ -1,9 +1,6 @@
-// C:/Users/Codersbay/diabetes_app/lib/pages/reg_page.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-import 'sign_up.dart'; // Make sure sign_up.dart is the correct login page
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'verify_email.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -26,9 +23,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _agree = false;
   bool _loading = false;
 
-  // It's good practice to make these final as they won't be reassigned
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final _supabase = Supabase.instance.client;
 
   @override
   void dispose() {
@@ -39,138 +34,64 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  // --- Validators ---
-  String? _nameValidator(String? v) {
-    if (v == null || v.trim().length < 2) return 'Please enter a valid name';
-    return null;
-  }
-
-  String? _emailValidator(String? v) {
-    final email = v?.trim() ?? "";
-    // Using a more common and slightly more robust regex
-    if (!RegExp(r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+").hasMatch(email)) {
-      return 'Please enter a valid email address';
-    }
-    return null;
-  }
-
-  String? _pwdValidator(String? v) {
-    if (v == null || v.length < 6) return 'Password must be at least 6 characters';
-    return null;
-  }
-
-  String? _pwd2Validator(String? v) {
-    if (v != _pwdCtrl.text) return 'Passwords do not match';
-    return null;
-  }
-
+  // -------------------- Registration --------------------
   Future<void> _register() async {
-    // 1. IMPROVEMENT: Check if the widget is still mounted before proceeding
-    if (!mounted) return;
-
-    final isFormValid = _formKey.currentState?.validate() ?? false;
-    if (!isFormValid) return;
-
-    if (!_agree) {
-      _showError('You must agree to the Terms & Privacy Policy');
+    if (!_formKey.currentState!.validate() || !_agree) {
+      _showError('Please complete all fields and accept terms.');
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      final email = _emailCtrl.text.trim().toLowerCase();
-      final password = _pwdCtrl.text; // No need to trim again
       final name = _nameCtrl.text.trim();
+      final email = _emailCtrl.text.trim().toLowerCase();
+      final password = _pwdCtrl.text.trim();
 
-      // Create Firebase user
-      final credential = await _auth.createUserWithEmailAndPassword(
+      final authResponse = await _supabase.auth.signUp(
         email: email,
         password: password,
+        data: {'name': name},
       );
 
-      // Null check the user object for safety
-      final user = credential.user;
-      if (user == null) {
-        throw Exception("User creation failed, please try again.");
+      if (authResponse.user != null) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => VerifyEmailPage(userEmail: email)),
+        );
+      } else {
+        _showError('Failed to register user.');
       }
-
-      // Save user profile to Firestore
-      await _db.collection('users').doc(user.uid).set({
-        'name': name,
-        'email': email,
-        'createdAt': FieldValue.serverTimestamp(), // 2. IMPROVEMENT: Use server timestamp
-      });
-
-      // Send verification email
-      await user.sendEmailVerification();
-
-      // 3. IMPROVEMENT: Check mounted status before showing SnackBar or navigating
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Account created! Please verify your email before logging in.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const SignUpPage()),
-            (route) => false, // This removes all previous routes from the stack
-      );
-      // ... inside _register()
-    } on FirebaseAuthException catch (e) {
-      // This part is fine, it handles specific auth errors
-      if (mounted) {print("FIREBASE AUTH ERROR: Code: ${e.code}, Message: ${e.message}"); // Also print the detailed error
-      _showError(_firebaseError(e.code));
-      }
-    } catch (e, s) { // Also catch the stack trace 's'
-      // THIS IS THE CRITICAL CHANGE
-      // We will now print the detailed error to the debug console.
-      print("A GENERIC ERROR OCCURRED: $e");
-      print("STACK TRACE: $s");
-      if (mounted) _showError("An unexpected error occurred. Check the debug console for details.");
+    } on AuthException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  String _firebaseError(String code) {
-    switch (code) {
-      case 'email-already-in-use':
-        return 'This email is already registered. Please log in.';
-      case 'weak-password':
-        return 'Your password is too weak. Please choose a stronger one.';
-      case 'invalid-email':
-        return 'The email address is not valid.';
-      default:
-        return 'An unknown error occurred. Please try again.';
-    }
-  }
-
   void _showError(String msg) {
-    // Check mounted status here as well for safety
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
   }
 
-  // --- Build Method and Widgets ---
-  // No changes needed here, the existing code is great.
+  // -------------------- UI --------------------
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textColor = scheme.onBackground.withOpacity(0.85);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F4FA),
+      backgroundColor: scheme.background,
       appBar: AppBar(
         title: const Text('Create account'),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: scheme.primary,
+        foregroundColor: scheme.onPrimary,
         elevation: 0,
-        foregroundColor: Colors.black87,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -178,30 +99,56 @@ class _RegisterPageState extends State<RegisterPage> {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: scheme.surface,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, 10)),
+              boxShadow: [
+                BoxShadow(
+                  color: scheme.shadow.withOpacity(0.15),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
             child: Form(
               key: _formKey,
               child: Column(
                 children: [
-                  _input(_nameCtrl, 'Full name', Icons.person_outline, _nameValidator),
+                  _input(
+                    _nameCtrl,
+                    'Full name',
+                    Icons.person_outline,
+                    _validateName,
+                    scheme,
+                  ),
                   const SizedBox(height: 12),
-                  _input(_emailCtrl, 'Email', Icons.email_outlined, _emailValidator),
+                  _input(
+                    _emailCtrl,
+                    'Email',
+                    Icons.email_outlined,
+                    _validateEmail,
+                    scheme,
+                  ),
                   const SizedBox(height: 12),
-                  _input(_pwdCtrl, 'Password', Icons.lock_outline, _pwdValidator,
-                      obscure: _obscure1,
-                      toggle: () => setState(() => _obscure1 = !_obscure1)),
+                  _input(
+                    _pwdCtrl,
+                    'Password',
+                    Icons.lock_outline,
+                    _validatePassword,
+                    scheme,
+                    obscure: _obscure1,
+                    toggle: () => setState(() => _obscure1 = !_obscure1),
+                  ),
                   const SizedBox(height: 12),
-                  _input(_pwd2Ctrl, 'Confirm password', Icons.lock_outline,
-                      _pwd2Validator,
-                      obscure: _obscure2,
-                      toggle: () => setState(() => _obscure2 = !_obscure2)),
+                  _input(
+                    _pwd2Ctrl,
+                    'Confirm password',
+                    Icons.lock_outline,
+                    _validatePasswordConfirm,
+                    scheme,
+                    obscure: _obscure2,
+                    toggle: () => setState(() => _obscure2 = !_obscure2),
+                  ),
                   const SizedBox(height: 12),
-
                   Row(
                     children: [
                       Checkbox(
@@ -209,28 +156,36 @@ class _RegisterPageState extends State<RegisterPage> {
                         onChanged: (v) => setState(() => _agree = v ?? false),
                         activeColor: kBrandBlue,
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'I agree to the Terms and Privacy Policy',
-                          style: TextStyle(fontSize: 13),
+                          style: TextStyle(fontSize: 13, color: textColor),
                         ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _loading ? null : _register,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandBlue,
+                        backgroundColor: scheme.primary,
+                        foregroundColor: scheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       child: _loading
-                          ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-                          : const Text('Sign up', style: TextStyle(fontSize: 16, color: Colors.white)),
+                          ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 3,
+                      )
+                          : const Text(
+                        'Sign up',
+                        style: TextStyle(fontSize: 16),
+                      ),
                     ),
                   ),
                 ],
@@ -242,22 +197,55 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  Widget _input(TextEditingController c, String hint, IconData icon,
+  // -------------------- Validators --------------------
+  String? _validateName(String? v) =>
+      (v == null || v.trim().length < 2) ? 'Enter your name' : null;
+
+  String? _validateEmail(String? v) {
+    final email = v?.trim() ?? '';
+    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
+      return 'Invalid email';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? v) =>
+      (v == null || v.length < 6) ? 'Min 6 characters' : null;
+
+  String? _validatePasswordConfirm(String? v) =>
+      (v != _pwdCtrl.text) ? 'Passwords do not match' : null;
+
+  // -------------------- Input Builder --------------------
+  Widget _input(
+      TextEditingController c,
+      String hint,
+      IconData icon,
       String? Function(String?) validator,
-      {bool obscure = false, VoidCallback? toggle}) {
+      ColorScheme scheme, {
+        bool obscure = false,
+        VoidCallback? toggle,
+      }) {
     return TextFormField(
       controller: c,
       validator: validator,
       obscureText: obscure,
+      style: TextStyle(color: scheme.onSurface),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon),
+        hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.6)),
+        prefixIcon: Icon(icon, color: scheme.primary),
         filled: true,
-        fillColor: const Color(0xFFF9FCFF),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        fillColor: scheme.surfaceVariant,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
         suffixIcon: toggle != null
             ? IconButton(
-          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
+          icon: Icon(
+            obscure ? Icons.visibility_off : Icons.visibility,
+            color: scheme.onSurface.withOpacity(0.6),
+          ),
           onPressed: toggle,
         )
             : null,

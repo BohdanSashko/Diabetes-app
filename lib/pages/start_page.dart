@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../security/bio_auth.dart';
+import '../main.dart';
 import 'sign_up.dart';
+import 'settings.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -19,22 +20,33 @@ class _StartPageState extends State<StartPage> {
   String? _name;
   String? _email;
 
+  final _supabase = Supabase.instance.client;
+
   @override
   void initState() {
     super.initState();
     _email = widget.initialEmail;
-    _loadName();
+    _loadUserData();
   }
 
-  Future<void> _loadName() async {
-    final user = FirebaseAuth.instance.currentUser;
-    setState(() => _name = user?.displayName ?? '');
+  Future<void> _loadUserData() async {
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      final userName = user.userMetadata?['name'] as String?;
+      setState(() {
+        _name = userName ?? '';
+      });
+    }
   }
 
   Future<void> _signOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    await FirebaseAuth.instance.signOut();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      await _supabase.auth.signOut();
+    } catch (e) {
+      debugPrint("Error during sign out: $e");
+    }
 
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
@@ -45,27 +57,33 @@ class _StartPageState extends State<StartPage> {
   }
 
   ListTile _drawerTile(IconData icon, String title, VoidCallback onTap) {
+    final scheme = Theme.of(context).colorScheme;
     return ListTile(
-      leading: Icon(icon, color: kBrandBlue),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      leading: Icon(icon, color: scheme.primary),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: scheme.onSurface,
+        ),
+      ),
       onTap: onTap,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final greeting = _name?.isNotEmpty == true
-        ? "Hi, $_name"
-        : "Hi, ${_email ?? 'Guest'}";
+    final scheme = Theme.of(context).colorScheme;
+    final greeting =
+    _name?.isNotEmpty == true ? "Hi, $_name" : "Hi, ${_email ?? 'Guest'}";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F4FA),
-
+      backgroundColor: scheme.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'DiaWell',
           style: TextStyle(
-            color: kBrandBlue,
+            color: scheme.primary,
             fontWeight: FontWeight.w800,
             fontSize: 24,
           ),
@@ -73,37 +91,36 @@ class _StartPageState extends State<StartPage> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: kBrandBlue),
+        iconTheme: IconThemeData(color: scheme.primary),
       ),
-
       drawer: Drawer(
         child: Container(
-          color: const Color(0xFFE3F4FA),
+          color: scheme.surface,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
-                decoration: const BoxDecoration(color: kBrandBlue),
+                decoration: BoxDecoration(color: scheme.primary),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 30,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.person, size: 42, color: kBrandBlue),
+                      backgroundColor: scheme.onPrimary,
+                      child: Icon(Icons.person, size: 42, color: scheme.primary),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       _name?.isNotEmpty == true ? _name! : "User",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: scheme.onPrimary,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
                       _email ?? "",
-                      style: const TextStyle(color: Colors.white70),
+                      style: TextStyle(color: scheme.onPrimary.withOpacity(0.8)),
                     ),
                   ],
                 ),
@@ -111,19 +128,30 @@ class _StartPageState extends State<StartPage> {
               _drawerTile(Icons.monitor_heart_outlined, 'Log glucose', () {}),
               _drawerTile(Icons.restaurant_menu_outlined, 'Enter meals', () {}),
               _drawerTile(Icons.bar_chart_outlined, 'Sugar history', () {}),
-              _drawerTile(Icons.settings_outlined, 'Settings', () {}),
+              _drawerTile(Icons.settings_outlined, 'Settings', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AppSettingsPage(
+                      onThemeChanged: (isDark) {
+                      },
+                    ),
+                  ),
+                );
+              }),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('Sign out',
-                    style: TextStyle(color: Colors.redAccent)),
+                title: const Text(
+                  'Sign out',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: _signOut,
               ),
             ],
           ),
         ),
       ),
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -133,25 +161,24 @@ class _StartPageState extends State<StartPage> {
               Center(
                 child: Text(
                   greeting,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: scheme.onBackground,
                   ),
                 ),
               ),
               const SizedBox(height: 20),
-
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: scheme.surface,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
                       blurRadius: 20,
-                      color: Colors.black12,
-                      offset: Offset(0, 8),
+                      color: scheme.shadow.withOpacity(0.2),
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
@@ -177,22 +204,19 @@ class _StartPageState extends State<StartPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {},
-                      icon: const Icon(Icons.alarm),
-                      label: const Text('Reminders'),
+                      icon: Icon(Icons.alarm, color: scheme.primary),
+                      label: Text(
+                        'Reminders',
+                        style: TextStyle(color: scheme.primary),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: kBrandBlue,
-                        side: const BorderSide(
-                          color: kBrandBlue,
-                          width: 1.4,
-                        ),
+                        side: BorderSide(color: scheme.primary, width: 1.4),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -207,8 +231,8 @@ class _StartPageState extends State<StartPage> {
                       icon: const Icon(Icons.file_download),
                       label: const Text('Export'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandBlue,
-                        foregroundColor: Colors.white,
+                        backgroundColor: scheme.primary,
+                        foregroundColor: scheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -240,6 +264,8 @@ class _HomeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () => ScaffoldMessenger.of(context)
@@ -252,27 +278,36 @@ class _HomeTile extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFFE3F4FA),
+                color: scheme.secondaryContainer,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: kBrandBlue),
+              child: Icon(icon, color: scheme.primary),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 13, color: Colors.black54)),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: scheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.black38),
+            Icon(Icons.chevron_right, color: scheme.onSurface.withOpacity(0.5)),
           ],
         ),
       ),

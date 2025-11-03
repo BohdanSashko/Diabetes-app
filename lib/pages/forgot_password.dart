@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
-
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -16,51 +14,61 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController _emailCtrl = TextEditingController();
   bool _loading = false;
 
-  // --- Firebase password reset ---
+  final supabase = Supabase.instance.client;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _resetPassword() async {
     final email = _emailCtrl.text.trim();
+
     if (email.isEmpty) {
-      _showMsg('Please enter your registered email.');
+      _showMsg('Please enter your registered email.', isError: true);
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-
+      await supabase.auth.resetPasswordForEmail(email);
       if (!mounted) return;
-      _showMsg('✅ Password reset email sent to $email');
-    } on FirebaseAuthException catch (e) {
-      String message = 'Something went wrong.';
-      if (e.code == 'user-not-found') {
-        message = 'No user found for that email.';
-      } else if (e.code == 'invalid-email') {
-        message = 'Invalid email address.';
-      } else if (e.message != null) {
-        message = e.message!;
-      }
-      _showMsg('⚠️ $message');
+      _showMsg('✅ Password reset email sent to $email.', isError: false);
+    } on AuthException catch (e) {
+      _showMsg('⚠️ ${e.message}', isError: true);
+    } catch (e) {
+      _showMsg('⚠️ Unexpected error: ${e.toString()}', isError: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _showMsg(String msg) {
+  void _showMsg(String msg, {bool isError = false}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F4FA),
+      backgroundColor: colorScheme.background, // ✅ Dynamic background
       appBar: AppBar(
         title: const Text('Forgot Password'),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: colorScheme.primary.withOpacity(0.1),
         elevation: 0,
-        foregroundColor: Colors.black87,
+        foregroundColor: textColor,
       ),
       body: SafeArea(
         child: Center(
@@ -69,23 +77,34 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colorScheme.surface, // ✅ Changes automatically for dark theme
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
                     blurRadius: 20,
-                    color: Colors.black12,
-                    offset: Offset(0, 10),
+                    color: Colors.black.withOpacity(0.1),
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Enter your registered email address and we’ll send you a link to reset your password.',
+                  Icon(Icons.lock_reset, size: 60, color: colorScheme.primary),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Reset your password',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter your registered email address and we’ll send you a reset link.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Colors.black87),
+                    style: TextStyle(fontSize: 14, color: textColor.withOpacity(0.7)),
                   ),
                   const SizedBox(height: 24),
                   TextField(
@@ -95,15 +114,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     decoration: InputDecoration(
                       hintText: 'Email address',
                       filled: true,
-                      fillColor: const Color(0xFFF9FCFF),
+                      fillColor: colorScheme.surfaceVariant.withOpacity(0.2),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 12,
-                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -137,9 +153,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
+                    child: Text(
                       'Back to Sign In',
-                      style: TextStyle(color: kBrandBlue, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

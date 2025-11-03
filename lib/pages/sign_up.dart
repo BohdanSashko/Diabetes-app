@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:diabetes_app/security/bio_auth.dart';
 import 'reg_page.dart';
 import 'start_page.dart';
 import 'forgot_password.dart';
@@ -9,139 +8,213 @@ import 'forgot_password.dart';
 const Color kBrandBlue = Color(0xFF009FCC);
 
 class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+  final void Function(bool)? onThemeChanged; // optional callback for theme toggle
+
+  const SignUpPage({super.key, this.onThemeChanged});
 
   @override
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
 class _SignUpPageState extends State<SignUpPage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final supabase = Supabase.instance.client;
+
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _pwdCtrl = TextEditingController();
+
   bool _obscure = true;
   bool _loading = false;
-  bool _canUseBiometric = false;
 
   @override
-  void initState() {
-    super.initState();
-    _checkBiometricSupport();
+  void dispose() {
+    _emailCtrl.dispose();
+    _pwdCtrl.dispose();
+    super.dispose();
   }
 
   void _error(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
     );
   }
 
+  // 🔹 Sign in with Supabase
   Future<void> _signIn() async {
     FocusScope.of(context).unfocus();
     final email = _emailCtrl.text.trim();
     final password = _pwdCtrl.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      _error('Email and password required');
+      _error('Email and password are required.');
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('biometricEmail', email);
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => StartPage(initialEmail: email)),
+      final response = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
       );
-    } on FirebaseAuthException catch (e) {
-      _error(e.message ?? 'Login failed');
+
+      if (response.session != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('biometricEmail', email);
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => StartPage(initialEmail: email)),
+        );
+      } else {
+        _error('Invalid credentials. Please try again.');
+      }
+    } on AuthException catch (e) {
+      _error(e.message);
+    } catch (e) {
+      _error('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _checkBiometricSupport() async {
-    final bio = BiometricAuth();
-    final canUse = await bio.canCheckBiometrics();
-    if (mounted) setState(() => _canUseBiometric = canUse);
-  }
-
-  Future<void> _bioLogin() async {
-    final bio = BiometricAuth();
-    await bio.checkBiometric(
-      context,
-      const SignUpPage(),
-      setupMode: false,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textColor = scheme.onBackground.withOpacity(0.8);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F4FA),
+      backgroundColor: scheme.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset('assets/images/DiaWell.png', width: 140),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _emailCtrl,
-                  textAlign: TextAlign.center,
-                  decoration: const InputDecoration(hintText: "Email"),
+                Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/DiaWell.png'
+                      : 'assets/images/DiaWell_dark.png',
+                  width: 140,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _pwdCtrl,
-                  obscureText: _obscure,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: "Password",
-                    suffixIcon: IconButton(
-                      onPressed: () =>
-                          setState(() => _obscure = !_obscure),
-                      icon: Icon(_obscure
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                    ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your daily diabetes companion',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.black54,
                   ),
+                ),
+
+                const SizedBox(height: 28),
+
+                _textField(
+                  _emailCtrl,
+                  "Email",
+                  isPassword: false,
+                  scheme: scheme,
+                  textColor: textColor,
+                ),
+                const SizedBox(height: 16),
+                _textField(
+                  _pwdCtrl,
+                  "Password",
+                  isPassword: true,
+                  scheme: scheme,
+                  textColor: textColor,
                 ),
                 const SizedBox(height: 18),
-                ElevatedButton(
-                  onPressed: _loading ? null : _signIn,
-                  child: const Text("Continue"),
-                ),
-                if (_canUseBiometric) ...[
-                  const SizedBox(height: 14),
-                  ElevatedButton.icon(
-                    onPressed: _bioLogin,
-                    icon: const Icon(Icons.fingerprint),
-                    label: const Text("Login with Biometrics"),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 4,
+                    ),
+                    onPressed: _loading ? null : _signIn,
+                    child: _loading
+                        ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                        : const Text("Continue"),
                   ),
-                ],
+                ),
+
+                const SizedBox(height: 18),
                 TextButton(
-                  onPressed: () =>
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const RegisterPage())),
-                  child: const Text("Create new account"),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterPage()),
+                  ),
+                  child: Text(
+                    "Create new account",
+                    style: TextStyle(color: scheme.primary),
+                  ),
                 ),
                 TextButton(
-                  onPressed: () =>
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const ForgotPasswordPage())),
-                  child: const Text("Forgot password?"),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                  ),
+                  child: Text(
+                    "Forgot password?",
+                    style: TextStyle(color: textColor),
+                  ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // 🔹 Custom textfield builder (now theme-based)
+  Widget _textField(
+      TextEditingController controller,
+      String hint, {
+        required bool isPassword,
+        required ColorScheme scheme,
+        required Color textColor,
+      }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword && _obscure,
+      textAlign: TextAlign.center,
+      style: TextStyle(color: textColor),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.6)),
+        filled: true,
+        fillColor: scheme.surfaceVariant,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        suffixIcon: isPassword
+            ? IconButton(
+          icon: Icon(
+            _obscure ? Icons.visibility_off : Icons.visibility,
+            color: scheme.onSurface.withOpacity(0.6),
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        )
+            : null,
       ),
     );
   }
