@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'reg_page.dart';
 import 'start_page.dart';
 import 'forgot_password.dart';
+import 'questions_before_start.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -62,11 +63,38 @@ class _SignUpPageState extends State<SignUpPage> {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('biometricEmail', email);
 
+        final firstLoginDone = prefs.getBool('firstLoginDone') ?? false;
+
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => StartPage(initialEmail: email)),
-        );
+
+        if (!firstLoginDone) {
+          // ✅ show diabetes questionnaire only on FIRST login
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DiabetesQuestionPage(
+                onFinished: () async {
+                  await prefs.setBool('firstLoginDone', true);
+                  if (!context.mounted) return;
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StartPage(initialEmail: email),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        } else {
+          // ✅ skip questionnaire for next logins
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => StartPage(initialEmail: email),
+            ),
+          );
+        }
       } else {
         _error('Invalid credentials. Please try again.');
       }
@@ -78,6 +106,7 @@ class _SignUpPageState extends State<SignUpPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

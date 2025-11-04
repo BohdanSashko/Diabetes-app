@@ -52,7 +52,7 @@ class _StartPageState extends State<StartPage> {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SignUpPage()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -62,10 +62,7 @@ class _StartPageState extends State<StartPage> {
       leading: Icon(icon, color: scheme.primary),
       title: Text(
         title,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: scheme.onSurface,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w600, color: scheme.onSurface),
       ),
       onTap: onTap,
     );
@@ -74,8 +71,9 @@ class _StartPageState extends State<StartPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final greeting =
-    _name?.isNotEmpty == true ? "Hi, $_name" : "Hi, ${_email ?? 'Guest'}";
+    final greeting = _name?.isNotEmpty == true
+        ? "Hi, $_name"
+        : "Hi, ${_email ?? 'Guest'}";
 
     return Scaffold(
       backgroundColor: scheme.background,
@@ -107,7 +105,11 @@ class _StartPageState extends State<StartPage> {
                     CircleAvatar(
                       radius: 30,
                       backgroundColor: scheme.onPrimary,
-                      child: Icon(Icons.person, size: 42, color: scheme.primary),
+                      child: Icon(
+                        Icons.person,
+                        size: 42,
+                        color: scheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -120,7 +122,9 @@ class _StartPageState extends State<StartPage> {
                     ),
                     Text(
                       _email ?? "",
-                      style: TextStyle(color: scheme.onPrimary.withOpacity(0.8)),
+                      style: TextStyle(
+                        color: scheme.onPrimary.withOpacity(0.8),
+                      ),
                     ),
                   ],
                 ),
@@ -131,12 +135,7 @@ class _StartPageState extends State<StartPage> {
               _drawerTile(Icons.settings_outlined, 'Settings', () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => AppSettingsPage(
-                      onThemeChanged: (isDark) {
-                      },
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => const AppSettingsPage()),
                 );
               }),
               const Divider(),
@@ -268,8 +267,9 @@ class _HomeTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('TODO: $title'))),
+      onTap: () => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('TODO: $title'))),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
