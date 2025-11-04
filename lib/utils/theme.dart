@@ -25,12 +25,12 @@ final ThemeData darkMode = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
     colorScheme: ColorScheme.dark(
-        surface: Colors.black,
+        surface: Colors.black45,
         primary: Colors.blue.shade800,
         secondary: Colors.blue.shade700,
         background: Color(0xFF1E1E1E),
     ),
-    scaffoldBackgroundColor: Colors.black,
+    scaffoldBackgroundColor: Colors.black54,
     appBarTheme: AppBarTheme(
         backgroundColor: Colors.grey.shade900,
         foregroundColor: Colors.white,
