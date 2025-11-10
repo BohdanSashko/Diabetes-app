@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'verify_email.dart';
+import '../../data/services/user_service.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
+final userService = UserService();
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -34,7 +36,6 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  // -------------------- Registration --------------------
   Future<void> _register() async {
     if (!_formKey.currentState!.validate() || !_agree) {
       _showError('Please complete all fields and accept terms.');
@@ -48,21 +49,27 @@ class _RegisterPageState extends State<RegisterPage> {
       final email = _emailCtrl.text.trim().toLowerCase();
       final password = _pwdCtrl.text.trim();
 
+      // ✅ Один правильный вызов signUp с deep link
       final authResponse = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'name': name},
+        emailRedirectTo: 'diabetesapp://login-callback', // deep link
+        data: {'name': name}, // сохраняется в auth.users -> raw_user_meta_data
       );
 
-      if (authResponse.user != null) {
+      final user = authResponse.user;
+
+      if (user != null) {
+        // ✅ Показываем экран "проверь почту"
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => VerifyEmailPage(userEmail: email)),
         );
       } else {
-        _showError('Failed to register user.');
+        _showError('Check your email for verification link.');
       }
+
     } on AuthException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -72,13 +79,13 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
     );
   }
 
-  // -------------------- UI --------------------
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -113,41 +120,21 @@ class _RegisterPageState extends State<RegisterPage> {
               key: _formKey,
               child: Column(
                 children: [
-                  _input(
-                    _nameCtrl,
-                    'Full name',
-                    Icons.person_outline,
-                    _validateName,
-                    scheme,
-                  ),
+                  _input(_nameCtrl, 'Full name', Icons.person_outline,
+                      _validateName, scheme),
                   const SizedBox(height: 12),
-                  _input(
-                    _emailCtrl,
-                    'Email',
-                    Icons.email_outlined,
-                    _validateEmail,
-                    scheme,
-                  ),
+                  _input(_emailCtrl, 'Email', Icons.email_outlined,
+                      _validateEmail, scheme),
                   const SizedBox(height: 12),
-                  _input(
-                    _pwdCtrl,
-                    'Password',
-                    Icons.lock_outline,
-                    _validatePassword,
-                    scheme,
-                    obscure: _obscure1,
-                    toggle: () => setState(() => _obscure1 = !_obscure1),
-                  ),
+                  _input(_pwdCtrl, 'Password', Icons.lock_outline,
+                      _validatePassword, scheme,
+                      obscure: _obscure1,
+                      toggle: () => setState(() => _obscure1 = !_obscure1)),
                   const SizedBox(height: 12),
-                  _input(
-                    _pwd2Ctrl,
-                    'Confirm password',
-                    Icons.lock_outline,
-                    _validatePasswordConfirm,
-                    scheme,
-                    obscure: _obscure2,
-                    toggle: () => setState(() => _obscure2 = !_obscure2),
-                  ),
+                  _input(_pwd2Ctrl, 'Confirm password', Icons.lock_outline,
+                      _validatePasswordConfirm, scheme,
+                      obscure: _obscure2,
+                      toggle: () => setState(() => _obscure2 = !_obscure2)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -182,10 +169,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         color: Colors.white,
                         strokeWidth: 3,
                       )
-                          : const Text(
-                        'Sign up',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                          : const Text('Sign up', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],
@@ -197,7 +181,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // -------------------- Validators --------------------
   String? _validateName(String? v) =>
       (v == null || v.trim().length < 2) ? 'Enter your name' : null;
 
@@ -215,7 +198,6 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _validatePasswordConfirm(String? v) =>
       (v != _pwdCtrl.text) ? 'Passwords do not match' : null;
 
-  // -------------------- Input Builder --------------------
   Widget _input(
       TextEditingController c,
       String hint,

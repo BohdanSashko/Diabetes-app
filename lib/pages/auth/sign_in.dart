@@ -1,183 +1,199 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/services/user_service.dart';
-import '../auth/verify_email.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:diabetes_app/pages/home/questions_before_start.dart';
+import 'package:diabetes_app/pages/home/start_page.dart';
+import 'reg_page.dart';
+import 'forgot_password.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
-class SignUpPage extends StatefulWidget {
-  const SignUpPage({super.key});
+class SignInPage extends StatefulWidget {
+  const SignInPage({super.key});
 
   @override
-  State<SignUpPage> createState() => _SignUpPageState();
+  State<SignInPage> createState() => _SignInPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _pwdCtrl = TextEditingController();
-  final _pwd2Ctrl = TextEditingController();
-  bool _obscure1 = true;
-  bool _obscure2 = true;
-  bool _agree = false;
-  bool _loading = false;
+class _SignInPageState extends State<SignInPage> {
+  final supabase = Supabase.instance.client;
 
-  final _supabase = Supabase.instance.client;
-  final _userService = UserService();
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _pwdCtrl = TextEditingController();
+
+  bool _obscure = true;
+  bool _loading = false;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _pwdCtrl.dispose();
-    _pwd2Ctrl.dispose();
     super.dispose();
   }
 
-  // -------------------- Регистрация --------------------
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate() || !_agree) {
-      _showError('Please complete all fields and accept terms.');
+  void _error(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
+    );
+  }
+
+  // 🔹 Авторизация + проверка профиля
+  Future<void> _signIn() async {
+    FocusScope.of(context).unfocus();
+    final email = _emailCtrl.text.trim();
+    final password = _pwdCtrl.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _error('Please enter your email and password.');
       return;
     }
 
     setState(() => _loading = true);
 
     try {
-      final name = _nameCtrl.text.trim();
-      final email = _emailCtrl.text.trim().toLowerCase();
-      final password = _pwdCtrl.text.trim();
-
-      // 🔹 Создаём аккаунт через Supabase
-      final response = await _supabase.auth.signUp(
+      final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
-        data: {'name': name},
       );
 
-      if (response.user != null) {
-        // 🔹 Сразу создаём профиль (пустой)
-        final profile = UserProfile(id: response.user!.id);
-        await _userService.saveUserProfile(profile);
+      if (response.session != null) {
+        final user = response.user;
+        if (user == null) {
+          _error('Failed to retrieve user data.');
+          return;
+        }
 
-        // 🔹 Переходим на страницу подтверждения email
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('lastEmail', email);
+
+        // Проверяем, есть ли профиль пользователя
+        final profile = await supabase
+            .from('user_profiles')
+            .select('diabetes_type')
+            .eq('id', user.id)
+            .maybeSingle();
+
         if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VerifyEmailPage(userEmail: email),
-          ),
-        );
+
+        if (profile == null || profile['diabetes_type'] == null) {
+          // 🩸 первый вход — показываем вопросы
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DiabetesQuestionPage(
+                onFinished: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StartPage(initialEmail: email),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        } else {
+          // ✅ профиль уже есть — сразу на главную
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => StartPage(initialEmail: email),
+            ),
+          );
+        }
       } else {
-        _showError('Failed to register user.');
+        _error('Invalid credentials. Please try again.');
       }
     } on AuthException catch (e) {
-      _showError(e.message);
+      _error(e.message);
     } catch (e) {
-      _showError('Unexpected error: $e');
+      _error('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  // -------------------- UI --------------------
+  // ------------------ UI ------------------
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: const Text('Create account'),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.black87,
-      ),
+      backgroundColor: scheme.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 20,
-                  offset: Offset(0, 10),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/DiaWell.png'
+                      : 'assets/images/DiaWell_dark.png',
+                  width: 140,
                 ),
-              ],
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  _input(_nameCtrl, 'Full name', Icons.person_outline, _validateName),
-                  const SizedBox(height: 12),
-                  _input(_emailCtrl, 'Email', Icons.email_outlined, _validateEmail),
-                  const SizedBox(height: 12),
-                  _input(
-                    _pwdCtrl,
-                    'Password',
-                    Icons.lock_outline,
-                    _validatePassword,
-                    obscure: _obscure1,
-                    toggle: () => setState(() => _obscure1 = !_obscure1),
+                const SizedBox(height: 8),
+                Text(
+                  'Your daily diabetes companion',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: scheme.onSurface.withOpacity(0.7),
                   ),
-                  const SizedBox(height: 12),
-                  _input(
-                    _pwd2Ctrl,
-                    'Confirm password',
-                    Icons.lock_outline,
-                    _validatePasswordConfirm,
-                    obscure: _obscure2,
-                    toggle: () => setState(() => _obscure2 = !_obscure2),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _agree,
-                        onChanged: (v) => setState(() => _agree = v ?? false),
-                        activeColor: kBrandBlue,
-                      ),
-                      const Expanded(
-                        child: Text(
-                          'I agree to the Terms and Privacy Policy',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kBrandBlue,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: _loading
-                          ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 3,
-                      )
-                          : const Text(
-                        'Sign up',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
-                      ),
+                ),
+                const SizedBox(height: 28),
+
+                _textField(_emailCtrl, "Email", false, scheme),
+                const SizedBox(height: 16),
+                _textField(_pwdCtrl, "Password", true, scheme),
+                const SizedBox(height: 18),
+
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kBrandBlue,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                ],
-              ),
+                  onPressed: _loading ? null : _signIn,
+                  child: _loading
+                      ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text("Continue"),
+                ),
+
+                const SizedBox(height: 18),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterPage()),
+                  ),
+                  child: const Text(
+                    "Create new account",
+                    style: TextStyle(color: kBrandBlue),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ForgotPasswordPage()),
+                  ),
+                  child: Text(
+                    "Forgot password?",
+                    style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -185,59 +201,35 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  // -------------------- Validators --------------------
-  String? _validateName(String? v) =>
-      (v == null || v.trim().length < 2) ? 'Enter your name' : null;
-
-  String? _validateEmail(String? v) {
-    final email = v?.trim() ?? '';
-    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
-      return 'Invalid email';
-    }
-    return null;
-  }
-
-  String? _validatePassword(String? v) =>
-      (v == null || v.length < 6) ? 'Min 6 characters' : null;
-
-  String? _validatePasswordConfirm(String? v) =>
-      (v != _pwdCtrl.text) ? 'Passwords do not match' : null;
-
-  // -------------------- Input Builder --------------------
-  Widget _input(
-      TextEditingController c,
+  // 🔹 Текстовые поля
+  Widget _textField(
+      TextEditingController controller,
       String hint,
-      IconData icon,
-      String? Function(String?) validator, {
-        bool obscure = false,
-        VoidCallback? toggle,
-      }) {
-    return TextFormField(
-      controller: c,
-      validator: validator,
-      obscureText: obscure,
+      bool isPassword,
+      ColorScheme scheme,
+      ) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword && _obscure,
+      textAlign: TextAlign.center,
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon),
         filled: true,
-        fillColor: const Color(0xFFF9FCFF),
+        fillColor: scheme.surfaceVariant,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        suffixIcon: toggle != null
+        suffixIcon: isPassword
             ? IconButton(
-          icon: Icon(obscure ? Icons.visibility_off : Icons.visibility),
-          onPressed: toggle,
+          icon: Icon(
+            _obscure ? Icons.visibility_off : Icons.visibility,
+            color: scheme.onSurface.withOpacity(0.6),
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure),
         )
             : null,
       ),
-    );
-  }
-
-  void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
     );
   }
 }

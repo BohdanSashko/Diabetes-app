@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart';
-import 'sign_up.dart';
+import '../../main.dart';
+import '../auth/sign_in.dart';
 import 'settings.dart';
+import '../../data/services/user_service.dart';
+import '../../pages/home/sugar_history_page.dart';
+
+final userService = UserService();
+
+Future<void> _loadProfile() async {
+  final profile = await userService.fetchUserProfile();
+  if (profile != null){
+    print('User diabetes type: ${profile.diabetesType}');
+  }
+}
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -51,7 +62,7 @@ class _StartPageState extends State<StartPage> {
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const SignUpPage()),
+      MaterialPageRoute(builder: (_) => const SignInPage()),
       (route) => false,
     );
   }
@@ -131,7 +142,12 @@ class _StartPageState extends State<StartPage> {
               ),
               _drawerTile(Icons.monitor_heart_outlined, 'Log glucose', () {}),
               _drawerTile(Icons.restaurant_menu_outlined, 'Enter meals', () {}),
-              _drawerTile(Icons.bar_chart_outlined, 'Sugar history', () {}),
+              _drawerTile(Icons.bar_chart_outlined, 'Sugar history', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SugarHistoryPage()),
+                );
+              }),
               _drawerTile(Icons.settings_outlined, 'Settings', () {
                 Navigator.push(
                   context,

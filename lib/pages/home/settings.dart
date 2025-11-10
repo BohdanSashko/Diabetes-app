@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart'; // for MyAppState
+import 'package:diabetes_app/main.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -12,7 +12,7 @@ class AppSettingsPage extends StatefulWidget {
 }
 
 class _AppSettingsPageState extends State<AppSettingsPage> {
-  late ThemeMode _themeMode;
+  ThemeMode _themeMode = ThemeMode.system;
   bool notificationsEnabled = true;
   bool autoSync = true;
   String unit = 'mg/dL';
@@ -214,6 +214,9 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
   }
 
   Widget _themeSelector(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scheme = Theme.of(context).colorScheme;
+
     return SegmentedButton<ThemeMode>(
       segments: const [
         ButtonSegment(value: ThemeMode.system, label: Text('System')),
@@ -224,8 +227,31 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       onSelectionChanged: (selection) => _updateTheme(selection.first),
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith<Color?>(
-          (states) =>
-              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              // Цвет активного сегмента
+              return isDark ? scheme.primary : scheme.primary;
+            }
+            // Цвет неактивного сегмента
+            return scheme.surfaceVariant.withOpacity(0.2);
+          },
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith<Color?>(
+              (states) {
+            if (states.contains(WidgetState.selected)) {
+              // Цвет текста выбранного сегмента
+              return Colors.white;
+            }
+            // Цвет текста обычного сегмента
+            return isDark ? Colors.white70 : Colors.black87;
+          },
+        ),
+        side: WidgetStateProperty.all(
+          BorderSide(
+            color: isDark
+                ? Colors.white24
+                : scheme.outlineVariant.withOpacity(0.6),
+          ),
         ),
       ),
     );

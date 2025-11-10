@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/services/user_service.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -13,12 +13,13 @@ class DiabetesQuestionPage extends StatefulWidget {
 }
 
 class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
-  final supabase = Supabase.instance.client;
+  final userService = UserService();
 
   String? diabetesType;
   bool usesInsulin = false;
   double targetLow = 4.0;
   double targetHigh = 8.0;
+
   bool _saving = false;
   bool _loaded = false;
 
@@ -29,40 +30,16 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   }
 
   Future<void> _loadUserProfile() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    final response = await supabase
-        .from('user_profiles')
-        .select()
-        .eq('id', user.id)
-        .maybeSingle();
-
-    if (response != null) {
+    final profile = await userService.fetchUserProfile();
+    if (profile != null) {
       setState(() {
-        diabetesType = response['diabetes_type'];
-        usesInsulin = response['uses_insulin'] ?? false;
-        targetLow = (response['target_low'] ?? 4.0).toDouble();
-        targetHigh = (response['target_high'] ?? 8.0).toDouble();
+        diabetesType = profile.diabetesType;
+        usesInsulin = profile.usesInsulin;
+        targetLow = profile.targetLow;
+        targetHigh = profile.targetHigh;
       });
     }
-
     setState(() => _loaded = true);
-  }
-
-  // 🔹 Збереження або оновлення профілю користувача у Supabase
-  Future<void> _saveUserProfile() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
-
-    await supabase.from('user_profiles').upsert({
-      'id': user.id,
-      'diabetes_type': diabetesType,
-      'uses_insulin': usesInsulin,
-      'target_low': targetLow,
-      'target_high': targetHigh,
-      'updated_at': DateTime.now().toIso8601String(),
-    });
   }
 
   Future<void> _finish() async {
@@ -74,13 +51,23 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     }
 
     setState(() => _saving = true);
-    await _saveUserProfile();
 
-    // також ставимо флаг firstLoginDone у локальних prefs
+    // ✅ Сохраняем через сервис
+    final profile = UserProfile(
+      id: userService.currentUser!.id,
+      diabetesType: diabetesType,
+      usesInsulin: usesInsulin,
+      targetLow: targetLow,
+      targetHigh: targetHigh,
+    );
+
+    await userService.saveUserProfile(profile);
+
+    // ✅ Сохраняем локальный флаг (чтобы не показывать вопросы снова)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('firstLoginDone', true);
 
-    widget.onFinished();
+    if (mounted) widget.onFinished();
   }
 
   @override
@@ -144,10 +131,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                   child: TextFormField(
                     initialValue: targetLow.toStringAsFixed(1),
                     decoration: const InputDecoration(labelText: 'Low'),
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) =>
-                    targetLow = double.tryParse(v) ?? targetLow,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (v) => targetLow = double.tryParse(v) ?? targetLow,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -155,10 +140,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                   child: TextFormField(
                     initialValue: targetHigh.toStringAsFixed(1),
                     decoration: const InputDecoration(labelText: 'High'),
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) =>
-                    targetHigh = double.tryParse(v) ?? targetHigh,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (v) => targetHigh = double.tryParse(v) ?? targetHigh,
                   ),
                 ),
               ],
