@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:diabetes_app/pages/auth/reg_page.dart';
 import 'package:diabetes_app/pages/auth/sign_in.dart';
 import 'package:diabetes_app/pages/home/start_page.dart';
-import 'package:diabetes_app/pages/home/questions_before_start.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,37 +14,38 @@ void main() async {
     debug: true,
   );
 
-  // 🟩 Загружаем сохранённую тему до запуска
-  final prefs = await SharedPreferences.getInstance();
-  final themeString = prefs.getString('themeMode') ?? 'system';
-  final savedTheme = switch (themeString) {
-    'light' => ThemeMode.light,
-    'dark' => ThemeMode.dark,
-    _ => ThemeMode.system,
-  };
-
-  runApp(MyApp(initialTheme: savedTheme));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
-  final ThemeMode initialTheme;
-  const MyApp({super.key, required this.initialTheme});
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => MyAppState();
 }
 
 class MyAppState extends State<MyApp> {
-  late ThemeMode _themeMode;
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
-    _themeMode = widget.initialTheme;
+    _loadTheme();
   }
 
-  /// 🔹 Вызывается из SettingsPage
-  Future<void> updateThemeMode(ThemeMode mode) async {
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final themeString = prefs.getString('themeMode') ?? 'system';
+    setState(() {
+      _themeMode = switch (themeString) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+    });
+  }
+
+  void updateThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('themeMode', mode.name);
     setState(() => _themeMode = mode);
@@ -85,32 +83,27 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _checking = true;
   bool _isLoggedIn = false;
-  bool _firstLoginDone = false;
 
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
+    _checkAuth();
 
-    // 👇 слушаем Supabase изменения
+    // 👇 слушаем автоматические изменения (например, после верификации)
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.signedIn) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
         setState(() => _isLoggedIn = true);
-      } else if (data.event == AuthChangeEvent.signedOut) {
+      } else if (event == AuthChangeEvent.signedOut) {
         setState(() => _isLoggedIn = false);
       }
     });
   }
 
-  Future<void> _checkLoginStatus() async {
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-    final prefs = await SharedPreferences.getInstance();
-    final firstLogin = prefs.getBool('firstLoginDone') ?? false;
-
+  Future<void> _checkAuth() async {
+    final user = Supabase.instance.client.auth.currentUser;
     setState(() {
       _isLoggedIn = user != null;
-      _firstLoginDone = firstLogin;
       _checking = false;
     });
   }
@@ -123,28 +116,12 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    if (!_isLoggedIn) return const SignInPage();
-
-    if (!_firstLoginDone) {
-      return DiabetesQuestionPage(
-        onFinished: () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('firstLoginDone', true);
-          if (context.mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StartPage(
-                  initialEmail:
-                  Supabase.instance.client.auth.currentUser?.email ?? '',
-                ),
-              ),
-            );
-          }
-        },
-      );
+    // Если пользователь не авторизован → страница входа
+    if (!_isLoggedIn) {
+      return const SignInPage();
     }
 
+    // Если авторизован → сразу на главную
     return StartPage(
       initialEmail: Supabase.instance.client.auth.currentUser?.email ?? '',
     );

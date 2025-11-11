@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../main.dart';
 import '../auth/sign_in.dart';
 import 'settings.dart';
 import '../../data/services/user_service.dart';
 import '../../pages/home/sugar_history_page.dart';
 
 final userService = UserService();
-
-Future<void> _loadProfile() async {
-  final profile = await userService.fetchUserProfile();
-  if (profile != null){
-    print('User diabetes type: ${profile.diabetesType}');
-  }
-}
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -30,6 +22,7 @@ class StartPage extends StatefulWidget {
 class _StartPageState extends State<StartPage> {
   String? _name;
   String? _email;
+  String? _diabetesType;
 
   final _supabase = Supabase.instance.client;
 
@@ -44,8 +37,13 @@ class _StartPageState extends State<StartPage> {
     final user = _supabase.auth.currentUser;
     if (user != null) {
       final userName = user.userMetadata?['name'] as String?;
+      final profile = await userService
+          .fetchUserProfile(); // ✅ получаем профиль
+
       setState(() {
         _name = userName ?? '';
+        _email = user.email;
+        _diabetesType = profile?.diabetesType ?? 'Not specified';
       });
     }
   }
@@ -108,33 +106,35 @@ class _StartPageState extends State<StartPage> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              DrawerHeader(
+              UserAccountsDrawerHeader(
                 decoration: BoxDecoration(color: scheme.primary),
-                child: Column(
+
+                accountName: Text(
+                  _name ?? 'User',
+                  style: TextStyle(
+                    color: scheme.onPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                accountEmail: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: scheme.onPrimary,
-                      child: Icon(
-                        Icons.person,
-                        size: 42,
-                        color: scheme.primary,
+                    Text(
+                      _email ?? 'Email',
+                      style: TextStyle(
+                        color: scheme.onPrimary.withOpacity(0.9),
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 4),
                     Text(
-                      _name?.isNotEmpty == true ? _name! : "User",
+                      'Diabetes type: ${_diabetesType ?? 'Not specified'}',
                       style: TextStyle(
-                        color: scheme.onPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      _email ?? "",
-                      style: TextStyle(
-                        color: scheme.onPrimary.withOpacity(0.8),
+                        color: scheme.onPrimary.withOpacity(0.9),
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],
@@ -215,6 +215,14 @@ class _StartPageState extends State<StartPage> {
                       icon: Icons.show_chart_outlined,
                       title: 'View trends',
                       subtitle: 'Insights over time',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SugarHistoryPage(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -270,11 +278,13 @@ class _HomeTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap; // ✅ добавлено
 
   const _HomeTile({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap, // ✅ добавлено
   });
 
   @override
@@ -283,9 +293,7 @@ class _HomeTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('TODO: $title'))),
+      onTap: onTap ?? () {}, // ✅ теперь можно передать кастомный переход
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(

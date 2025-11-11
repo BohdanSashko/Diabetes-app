@@ -43,7 +43,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
   double _convert(double value) {
     // 1 mmol/L ≈ 18 mg/dL
-    return _unit == 'mg/dL' ? (value * 18.0182) : value;
+    return _unit == 'mg/dL' ? (value * 18) : value;
   }
 
   Future<void> _addRecordDialog() async {

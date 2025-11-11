@@ -57,44 +57,38 @@ class _SignInPageState extends State<SignInPage> {
         password: password,
       );
 
-      if (response.session != null) {
-        final user = response.user;
-        if (user == null) {
-          _error('Failed to retrieve user data.');
-          return;
-        }
+      if (response.session != null && response.user != null) {
+        final user = response.user!;
 
+        // ✅ Проверяем, проходил ли пользователь вопросы
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('lastEmail', email);
-
-        // Проверяем, есть ли профиль пользователя
-        final profile = await supabase
-            .from('user_profiles')
-            .select('diabetes_type')
-            .eq('id', user.id)
-            .maybeSingle();
+        final firstLoginDone = prefs.getBool('firstLoginDone_${user.id}') ?? false;
 
         if (!mounted) return;
 
-        if (profile == null || profile['diabetes_type'] == null) {
-          // 🩸 первый вход — показываем вопросы
+        if (!firstLoginDone) {
+          // 🔹 Если первый вход — показываем вопросы
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => DiabetesQuestionPage(
-                onFinished: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StartPage(initialEmail: email),
-                    ),
-                  );
+                onFinished: () async {
+                  await prefs.setBool('firstLoginDone_${user.id}', true);
+
+                  if (context.mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StartPage(initialEmail: email),
+                      ),
+                    );
+                  }
                 },
               ),
             ),
           );
         } else {
-          // ✅ профиль уже есть — сразу на главную
+          // 🔹 Уже был — сразу на главную
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -113,6 +107,7 @@ class _SignInPageState extends State<SignInPage> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
 
   // ------------------ UI ------------------
   @override
