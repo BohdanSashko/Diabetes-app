@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diabetes_app/main.dart';
+import 'package:diabetes_app/data/services/notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+late NotificationService notif;
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -83,7 +87,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Settings'),
         backgroundColor: scheme.primary,
@@ -100,7 +104,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
 
           _sectionTitle(context, 'Units'),
           DropdownButtonFormField<String>(
-            value: unit,
+            initialValue: unit,
             dropdownColor: scheme.surface,
             decoration: _inputDecoration(context),
             items: const [
@@ -116,27 +120,42 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
 
           _sectionTitle(context, 'Notifications'),
           SwitchListTile(
-            title: const Text('Enable Daily Reminders'),
+            title: const Text("Enable Daily Reminder"),
             value: notificationsEnabled,
-            activeColor: kBrandBlue,
-            onChanged: (v) {
+            onChanged: (v) async {
               setState(() => notificationsEnabled = v);
-              _savePrefs();
+              if (v) {
+                await notif.scheduleDaily(reminderTime);
+              } else {
+                await notif.cancel();
+              }
             },
           ),
+
           ListTile(
-            title: const Text('Reminder Time'),
+            title: const Text("Reminder time"),
             subtitle: Text(reminderTime.format(context)),
-            trailing: Icon(Icons.access_time, color: scheme.primary),
-            onTap: _pickTime,
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: reminderTime,
+              );
+              if (picked != null) {
+                setState(() => reminderTime = picked);
+                if (notificationsEnabled) {
+                  await notif.scheduleDaily(picked);
+                }
+              }
+            },
           ),
+
           const Divider(),
 
           _sectionTitle(context, 'Data Sync'),
           SwitchListTile(
             title: const Text('Auto Sync with Cloud'),
             value: autoSync,
-            activeColor: kBrandBlue,
+            activeThumbColor: kBrandBlue,
             onChanged: (v) {
               setState(() => autoSync = v);
               _savePrefs();
@@ -204,7 +223,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     final scheme = Theme.of(context).colorScheme;
     return InputDecoration(
       filled: true,
-      fillColor: scheme.surfaceVariant.withOpacity(0.2),
+      fillColor: scheme.surfaceContainerHighest.withOpacity(0.2),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
@@ -226,26 +245,22 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       selected: {_themeMode},
       onSelectionChanged: (selection) => _updateTheme(selection.first),
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith<Color?>(
-              (states) {
-            if (states.contains(WidgetState.selected)) {
-              // Цвет активного сегмента
-              return isDark ? scheme.primary : scheme.primary;
-            }
-            // Цвет неактивного сегмента
-            return scheme.surfaceVariant.withOpacity(0.2);
-          },
-        ),
-        foregroundColor: WidgetStateProperty.resolveWith<Color?>(
-              (states) {
-            if (states.contains(WidgetState.selected)) {
-              // Цвет текста выбранного сегмента
-              return Colors.white;
-            }
-            // Цвет текста обычного сегмента
-            return isDark ? Colors.white70 : Colors.black87;
-          },
-        ),
+        backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            // Цвет активного сегмента
+            return isDark ? scheme.primary : scheme.primary;
+          }
+          // Цвет неактивного сегмента
+          return scheme.surfaceContainerHighest.withOpacity(0.2);
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.selected)) {
+            // Цвет текста выбранного сегмента
+            return Colors.white;
+          }
+          // Цвет текста обычного сегмента
+          return isDark ? Colors.white70 : Colors.black87;
+        }),
         side: WidgetStateProperty.all(
           BorderSide(
             color: isDark

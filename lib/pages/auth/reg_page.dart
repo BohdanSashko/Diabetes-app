@@ -89,10 +89,10 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final textColor = scheme.onBackground.withOpacity(0.85);
+    final textColor = scheme.onSurface.withOpacity(0.85);
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Create account'),
         centerTitle: true,
@@ -217,7 +217,7 @@ class _RegisterPageState extends State<RegisterPage> {
         hintStyle: TextStyle(color: scheme.onSurface.withOpacity(0.6)),
         prefixIcon: Icon(icon, color: scheme.primary),
         filled: true,
-        fillColor: scheme.surfaceVariant,
+        fillColor: scheme.surfaceContainerHighest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

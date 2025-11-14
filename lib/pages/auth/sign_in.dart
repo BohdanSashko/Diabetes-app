@@ -57,44 +57,69 @@ class _SignInPageState extends State<SignInPage> {
         password: password,
       );
 
-      if (response.session != null && response.user != null) {
-        final user = response.user!;
+      if (response.session != null) {
+        final user = response.user;
+        if (user == null) {
+          _error('Failed to retrieve user data.');
+          return;
+        }
 
-        // ✅ Проверяем, проходил ли пользователь вопросы
+        // ✅ Проверяем, есть ли профиль пользователя
+        final data = await supabase
+            .from('user_profiles')
+            .select('diabetes_type')
+            .eq('id', user.id)
+            .maybeSingle();
+
         final prefs = await SharedPreferences.getInstance();
-        final firstLoginDone = prefs.getBool('firstLoginDone_${user.id}') ?? false;
+        await prefs.setString('lastEmail', email);
 
         if (!mounted) return;
 
-        if (!firstLoginDone) {
-          // 🔹 Если первый вход — показываем вопросы
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DiabetesQuestionPage(
-                onFinished: () async {
-                  await prefs.setBool('firstLoginDone_${user.id}', true);
+        if (data == null || data['diabetes_type'] == null) {
+          // 🩸 Новый пользователь — показать вопросы
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Future.microtask(() {
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => DiabetesQuestionPage(
+                      onFinished: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('firstLoginDone', true);
 
-                  if (context.mounted) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => StartPage(initialEmail: email),
-                      ),
-                    );
-                  }
-                },
-              ),
-            ),
-          );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    StartPage(initialEmail: user.email ?? ''),
+                              ),
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                );
+              }
+            });
+          });
         } else {
-          // 🔹 Уже был — сразу на главную
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => StartPage(initialEmail: email),
-            ),
-          );
+          // ✅ Уже есть профиль — сразу на главную
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            Future.microtask(() {
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => StartPage(initialEmail: email),
+                  ),
+                );
+              }
+            });
+          });
         }
       } else {
         _error('Invalid credentials. Please try again.');
@@ -108,14 +133,13 @@ class _SignInPageState extends State<SignInPage> {
     }
   }
 
-
   // ------------------ UI ------------------
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -139,9 +163,9 @@ class _SignInPageState extends State<SignInPage> {
                 ),
                 const SizedBox(height: 28),
 
-                _textField(_emailCtrl, "Email", false, scheme),
+                textField(_emailCtrl, "Email", false, scheme),
                 const SizedBox(height: 16),
-                _textField(_pwdCtrl, "Password", true, scheme),
+                textField(_pwdCtrl, "Password", true, scheme),
                 const SizedBox(height: 18),
 
                 ElevatedButton(
@@ -156,13 +180,13 @@ class _SignInPageState extends State<SignInPage> {
                   onPressed: _loading ? null : _signIn,
                   child: _loading
                       ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : const Text("Continue"),
                 ),
 
@@ -181,7 +205,8 @@ class _SignInPageState extends State<SignInPage> {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const ForgotPasswordPage()),
+                      builder: (_) => const ForgotPasswordPage(),
+                    ),
                   ),
                   child: Text(
                     "Forgot password?",
@@ -197,12 +222,12 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   // 🔹 Текстовые поля
-  Widget _textField(
-      TextEditingController controller,
-      String hint,
-      bool isPassword,
-      ColorScheme scheme,
-      ) {
+  Widget textField(
+    TextEditingController controller,
+    String hint,
+    bool isPassword,
+    ColorScheme scheme,
+  ) {
     return TextField(
       controller: controller,
       obscureText: isPassword && _obscure,
@@ -210,19 +235,19 @@ class _SignInPageState extends State<SignInPage> {
       decoration: InputDecoration(
         hintText: hint,
         filled: true,
-        fillColor: scheme.surfaceVariant,
+        fillColor: scheme.surfaceContainerHighest,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         suffixIcon: isPassword
             ? IconButton(
-          icon: Icon(
-            _obscure ? Icons.visibility_off : Icons.visibility,
-            color: scheme.onSurface.withOpacity(0.6),
-          ),
-          onPressed: () => setState(() => _obscure = !_obscure),
-        )
+                icon: Icon(
+                  _obscure ? Icons.visibility_off : Icons.visibility,
+                  color: scheme.onSurface.withOpacity(0.6),
+                ),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              )
             : null,
       ),
     );

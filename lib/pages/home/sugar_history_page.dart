@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../data/services/sugar_record.dart';
+import '../../models/sugar_record.dart';
 import '../../data/services/sugar_service.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
@@ -134,7 +134,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
     return Scaffold(
       backgroundColor:
-      isDark ? const Color(0xFF0E1A24) : scheme.background.withOpacity(0.95),
+      isDark ? const Color(0xFF0E1A24) : scheme.surface.withOpacity(0.95),
       appBar: AppBar(
         title: Text("Sugar History ($_unit)"), // <--- единицы в заголовке
         backgroundColor: kBrandBlue,
@@ -176,7 +176,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
           children: [
             _buildChartCard(),
             const SizedBox(height: 16),
-            ..._records.map(_buildSugarCard).toList(),
+            ..._records.map(_buildSugarCard),
           ],
         ),
       ),

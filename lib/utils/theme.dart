@@ -8,7 +8,6 @@ final ThemeData lightMode = ThemeData(
         surface: Colors.white,
         primary: Colors.blue.shade400,
         secondary: Colors.blue.shade200,
-        background: Colors.blue.shade50,
     ),
     scaffoldBackgroundColor: Colors.white,
     appBarTheme: AppBarTheme(
@@ -28,7 +27,6 @@ final ThemeData darkMode = ThemeData(
         surface: Colors.black45,
         primary: Colors.blue.shade800,
         secondary: Colors.blue.shade700,
-        background: Color(0xFF1E1E1E),
     ),
     scaffoldBackgroundColor: Colors.black54,
     appBarTheme: AppBarTheme(

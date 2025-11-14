@@ -5,6 +5,8 @@ import '../auth/sign_in.dart';
 import 'settings.dart';
 import '../../data/services/user_service.dart';
 import '../../pages/home/sugar_history_page.dart';
+import '../../pages/home/log_insulin_page.dart';
+import '../../pages/home/bolus_calculator_page.dart';
 
 final userService = UserService();
 
@@ -85,7 +87,7 @@ class _StartPageState extends State<StartPage> {
         : "Hi, ${_email ?? 'Guest'}";
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: Text(
           'DiaWell',
@@ -140,7 +142,14 @@ class _StartPageState extends State<StartPage> {
                   ],
                 ),
               ),
-              _drawerTile(Icons.monitor_heart_outlined, 'Log glucose', () {}),
+              _drawerTile(Icons.calculate, 'Bolus calculator', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const BolusCalculatorPage(),
+                  ),
+                );
+              }),
               _drawerTile(Icons.restaurant_menu_outlined, 'Enter meals', () {}),
               _drawerTile(Icons.bar_chart_outlined, 'Sugar history', () {
                 Navigator.push(
@@ -179,7 +188,7 @@ class _StartPageState extends State<StartPage> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: scheme.onBackground,
+                    color: scheme.onSurface,
                   ),
                 ),
               ),
@@ -201,8 +210,16 @@ class _StartPageState extends State<StartPage> {
                   children: [
                     _HomeTile(
                       icon: Icons.monitor_heart_outlined,
-                      title: 'Log glucose',
+                      title: 'Log insulin',
                       subtitle: 'Quickly add a reading',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const LogInsulinPage(),
+                          ),
+                        );
+                      },
                     ),
                     const Divider(height: 1),
                     _HomeTile(
@@ -220,6 +237,19 @@ class _StartPageState extends State<StartPage> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const SugarHistoryPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    _HomeTile(
+                      icon: Icons.calculate,
+                      title: 'Bolus calculator',
+                      subtitle: 'Smart insulin dose calculator',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BolusCalculatorPage(),
                           ),
                         );
                       },

@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:diabetes_app/data/services/sugar_record.dart';
+import 'package:diabetes_app/models/sugar_record.dart';
 
 class SugarService {
   final _supabase = Supabase.instance.client;

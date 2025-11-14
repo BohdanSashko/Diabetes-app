@@ -76,7 +76,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
     if (!_loaded) {
       return Scaffold(
-        backgroundColor: scheme.background,
+        backgroundColor: scheme.surface,
         body: const Center(
           child: CircularProgressIndicator(color: kBrandBlue),
         ),
@@ -84,7 +84,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     }
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
         title: const Text('Tell us about you'),
         backgroundColor: kBrandBlue,
@@ -102,7 +102,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: diabetesType?.isNotEmpty == true ? diabetesType : null,
+              initialValue: diabetesType?.isNotEmpty == true ? diabetesType : null,
               items: const [
                 DropdownMenuItem(value: 'Type 1', child: Text('Type 1')),
                 DropdownMenuItem(value: 'Type 2', child: Text('Type 2')),
@@ -118,7 +118,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
             const SizedBox(height: 20),
             SwitchListTile(
               title: const Text('Do you use insulin?'),
-              activeColor: kBrandBlue,
+              activeThumbColor: kBrandBlue,
               value: usesInsulin,
               onChanged: (v) => setState(() => usesInsulin = v),
             ),

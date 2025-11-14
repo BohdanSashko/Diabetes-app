@@ -63,7 +63,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87;
 
     return Scaffold(
-      backgroundColor: colorScheme.background, // ✅ Dynamic background
+      backgroundColor: colorScheme.surface, // ✅ Dynamic background
       appBar: AppBar(
         title: const Text('Forgot Password'),
         centerTitle: true,
@@ -119,7 +119,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     decoration: InputDecoration(
                       hintText: 'Email address',
                       filled: true,
-                      fillColor: colorScheme.surfaceVariant.withOpacity(0.2),
+                      fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.2),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,

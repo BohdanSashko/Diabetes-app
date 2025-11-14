@@ -3,7 +3,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:diabetes_app/pages/auth/sign_in.dart';
 import 'package:diabetes_app/pages/home/start_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+final FlutterLocalNotificationsPlugin notificationsPlugin =
+FlutterLocalNotificationsPlugin();
+
+Future<void> initNotifications() async {
+  const AndroidInitializationSettings androidSettings =
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings settings =
+  InitializationSettings(android: androidSettings);
+
+  await notificationsPlugin.initialize(settings);
+}
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -65,7 +78,7 @@ class MyAppState extends State<MyApp> {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF009FCC),
           secondary: Color(0xFF007BA7),
-          background: Color(0xFF0E1A24),
+          surface: Color(0xFF0E1A24),
         ),
       ),
       home: const AuthGate(),
