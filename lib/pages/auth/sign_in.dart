@@ -85,23 +85,19 @@ class _SignInPageState extends State<SignInPage> {
             if (!mounted) return;
             Future.microtask(() {
               if (mounted) {
-                Navigator.of(context).pushReplacement(
+                Navigator.pushReplacement(
+                  context,
                   MaterialPageRoute(
                     builder: (_) => DiabetesQuestionPage(
                       onFinished: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('firstLoginDone', true);
-
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    StartPage(initialEmail: user.email ?? ''),
-                              ),
-                            );
-                          }
-                        });
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => StartPage(
+                              initialEmail: user.email ?? '',
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),

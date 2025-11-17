@@ -125,7 +125,7 @@ class _RegisterPageState extends State<RegisterPage> {
               child: Column(
                 children: [
                   // Поля ввода с валидацией
-                  _input(_nameCtrl, 'Full name', Icons.person_outline,
+                  _input(_nameCtrl, '(Only) First name', Icons.person_outline,
                       _validateName, scheme),
                   const SizedBox(height: 12),
                   _input(_emailCtrl, 'Email', Icons.email_outlined,

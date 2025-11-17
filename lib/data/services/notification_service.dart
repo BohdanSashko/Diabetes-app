@@ -1,7 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter/material.dart';
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin plugin;
@@ -13,7 +13,7 @@ class NotificationService {
 
     final now = tz.TZDateTime.now(tz.local);
 
-    final schedule = tz.TZDateTime(
+    var schedule = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
@@ -22,13 +22,15 @@ class NotificationService {
       time.minute,
     );
 
+    if (schedule.isBefore(now)) {
+      schedule = schedule.add(const Duration(days: 1));
+    }
+
     await plugin.zonedSchedule(
       1,
       'DiaWell Reminder',
       'Time to log your glucose!',
-      schedule.isBefore(now)
-          ? schedule.add(const Duration(days: 1))
-          : schedule,
+      schedule,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'daily_channel',
@@ -38,10 +40,8 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: 'daily_reminder',
-      uiLocalNotificationDateInterpretation:
-      UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'daily_reminder',
     );
   }
 

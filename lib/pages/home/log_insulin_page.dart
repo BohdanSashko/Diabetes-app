@@ -22,7 +22,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text("Добавить инсулин"),
+        title: const Text("Add insulin log"),
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         elevation: 4,
@@ -56,7 +56,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Тип инсулина",
+                    "Insulin type",
                     style: TextStyle(
                       fontSize: 16,
                       color: scheme.onSurface.withOpacity(0.7),
@@ -66,9 +66,9 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
 
                   Row(
                     children: [
-                      _insulinChip("Быстрый", "rapid", Icons.bolt),
+                      _insulinChip("Rapid", "rapid", Icons.bolt),
                       const SizedBox(width: 12),
-                      _insulinChip("Базальный", "basal", Icons.water_drop),
+                      _insulinChip("Basal", "basal", Icons.water_drop),
                     ],
                   ),
                 ],
@@ -96,7 +96,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
               child: Column(
                 children: [
                   Text(
-                    "Доза (единицы)",
+                    "Dose (units)",
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -134,7 +134,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
             TextField(
               controller: _noteCtrl,
               decoration: InputDecoration(
-                labelText: "Заметка (необязательно)",
+                labelText: "Note (unnecessary)",
                 filled: true,
                 fillColor: scheme.surfaceVariant,
                 border: OutlineInputBorder(
@@ -153,7 +153,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text("Сохранить"),
+                label: const Text("Save"),
                 onPressed: () async {
                   await _service.addRecord(
                     _units,

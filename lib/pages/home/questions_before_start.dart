@@ -6,6 +6,7 @@ const Color kBrandBlue = Color(0xFF009FCC);
 
 class DiabetesQuestionPage extends StatefulWidget {
   final VoidCallback onFinished;
+
   const DiabetesQuestionPage({super.key, required this.onFinished});
 
   @override
@@ -30,8 +31,6 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   }
 
   Future<void> _loadUserProfile() async {
-    // 📌 Загружаем профиль пользователя из Supabase через сервис
-    // Если профиль есть — заполняем поля (редактирование, а не только первый вход)
     final profile = await userService.fetchUserProfile();
     if (profile != null) {
       setState(() {
@@ -41,11 +40,10 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         targetHigh = profile.targetHigh;
       });
     }
-    setState(() => _loaded = true); // 📌 Страница готова к отображению
+    setState(() => _loaded = true);
   }
 
   Future<void> _finish() async {
-    // 📌 Проверка на обязательный выбор типа диабета
     if (diabetesType == null || diabetesType!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your diabetes type')),
@@ -55,24 +53,37 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
     setState(() => _saving = true);
 
-    // 📌 Создаём объект профиля (сложность здесь: собираем данные из UI → модель)
-    final profile = UserProfile(
-      id: userService.currentUser!.id,
-      diabetesType: diabetesType,
-      usesInsulin: usesInsulin,
-      targetLow: targetLow,
-      targetHigh: targetHigh,
-    );
+    try {
+      final profile = UserProfile(
+        id: userService.currentUser!.id,
+        diabetesType: diabetesType,
+        usesInsulin: usesInsulin,
+        targetLow: targetLow,
+        targetHigh: targetHigh,
+      );
 
-    // 📌 Отправляем на сервер через сервис (абстракция над Supabase)
-    await userService.saveUserProfile(profile);
+      await userService.saveUserProfile(profile);
 
-    // 📌 Локальный флаг, чтобы не показывать вопросы при следующем запуске
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('firstLoginDone', true);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('firstLoginDone', true);
 
-    if (mounted) widget.onFinished(); // 📌 Возвращаем в вызывающую страницу
+      if (!mounted) return;
+
+      // ВАЖНО → вызываем после кадра
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        widget.onFinished();   // ← Переходит в SignInPage или AuthGate
+      });
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
+      setState(() => _saving = false);
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +92,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     if (!_loaded) {
       return Scaffold(
         backgroundColor: scheme.surface,
-        body: const Center(
-          child: CircularProgressIndicator(color: kBrandBlue),
-        ),
+        body: const Center(child: CircularProgressIndicator(color: kBrandBlue)),
       );
     }
 
@@ -100,69 +109,102 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'What type of diabetes do you have?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-
-            // 📌 Используем initialValue, чтобы корректно показывать данные профиля
-            DropdownButtonFormField<String>(
-              initialValue:
-              diabetesType?.isNotEmpty == true ? diabetesType : null,
-              items: const [
-                DropdownMenuItem(value: 'Type 1', child: Text('Type 1')),
-                DropdownMenuItem(value: 'Type 2', child: Text('Type 2')),
-                DropdownMenuItem(value: 'Gestational', child: Text('Gestational')),
-                DropdownMenuItem(value: 'Other', child: Text('Other / Not sure')),
-              ],
-              onChanged: (v) => setState(() => diabetesType = v),
-              decoration: InputDecoration(
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            // -----------------------------------
+            //               BIG TITLE
+            // -----------------------------------
+            Text(
+              "Tell us about you",
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
               ),
             ),
+            const SizedBox(height: 6),
+            Text(
+              "To personalize your experience",
+              style: TextStyle(
+                fontSize: 15,
+                color: scheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // -----------------------------------
+            //           CARD: DIABETES TYPE
+            // -----------------------------------
+            _sectionCard(
+              scheme,
+              title: "Diabetes type",
+              child: DropdownButtonFormField<String>(
+                value: diabetesType,
+                decoration: _dropdownDecoration(scheme),
+                items: const [
+                  DropdownMenuItem(value: 'Type 1', child: Text('Type 1')),
+                  DropdownMenuItem(value: 'Type 2', child: Text('Type 2')),
+                  DropdownMenuItem(
+                    value: 'Gestational',
+                    child: Text('Gestational'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'Other',
+                    child: Text('Other / Not sure'),
+                  ),
+                ],
+                onChanged: (v) => setState(() => diabetesType = v),
+              ),
+            ),
+
             const SizedBox(height: 20),
 
-            SwitchListTile(
-              title: const Text('Do you use insulin?'),
-              activeThumbColor: kBrandBlue,
-              value: usesInsulin,
-              onChanged: (v) => setState(() => usesInsulin = v),
+            // -----------------------------------
+            //            CARD: INSULIN
+            // -----------------------------------
+            _sectionCard(
+              scheme,
+              title: "Insulin usage",
+              child: SwitchListTile(
+                title: const Text("Do you use insulin?"),
+                activeColor: kBrandBlue,
+                value: usesInsulin,
+                onChanged: (v) => setState(() => usesInsulin = v),
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
+
             const SizedBox(height: 20),
 
-            const Text('Target glucose range (mmol/L):'),
-            const SizedBox(height: 8),
-
-            // 📌 Поля низ / верх зоны глюкозы → важно сохранить double из строки
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: targetLow.toStringAsFixed(1),
-                    decoration: const InputDecoration(labelText: 'Low'),
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) =>
-                    targetLow = double.tryParse(v) ?? targetLow,
+            // -----------------------------------
+            //        CARD: GLUCOSE TARGETS
+            // -----------------------------------
+            _sectionCard(
+              scheme,
+              title: "Target glucose range (mmol/L)",
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _smallNumberField(
+                      "Low",
+                      targetLow,
+                      (v) => targetLow = double.tryParse(v) ?? targetLow,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: targetHigh.toStringAsFixed(1),
-                    decoration: const InputDecoration(labelText: 'High'),
-                    keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) =>
-                    targetHigh = double.tryParse(v) ?? targetHigh,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _smallNumberField(
+                      "High",
+                      targetHigh,
+                      (v) => targetHigh = double.tryParse(v) ?? targetHigh,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+
             const Spacer(),
+
+            //           BOTTOM BUTTON
 
             SizedBox(
               width: double.infinity,
@@ -171,28 +213,107 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kBrandBlue,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 8,
+                  shadowColor: kBrandBlue.withOpacity(0.4),
                 ),
-
-                // 📌 Показываем индикатор, пока сохраняем
                 child: _saving
-                    ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                    : const Text('Continue'),
+                    ? const CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
+                    : const Text(
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  //          WIDGET HELPERS FOR STYLING
+
+  Widget _sectionCard(
+    ColorScheme scheme, {
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: scheme.surfaceVariant.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: scheme.shadow.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _smallNumberField(
+    String label,
+    double value,
+    Function(String) onChanged,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return TextFormField(
+      initialValue: value.toStringAsFixed(1),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: scheme.surfaceVariant.withOpacity(0.3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(ColorScheme scheme) {
+    return InputDecoration(
+      filled: true,
+      fillColor: scheme.surfaceVariant.withOpacity(0.25),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
   }
 }

@@ -29,6 +29,15 @@
                     android:scheme="diabetesapp"
                     android:host="login-callback" />
             </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="diabetesapp"
+                    android:host="reset-callback" />
+            </intent-filter>
+
 
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
