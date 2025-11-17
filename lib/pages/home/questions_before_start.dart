@@ -109,9 +109,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // -----------------------------------
-            //               BIG TITLE
-            // -----------------------------------
+
+            //         BIG TITLE
             Text(
               "Tell us about you",
               style: TextStyle(
@@ -131,9 +130,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 28),
 
-            // -----------------------------------
+
             //           CARD: DIABETES TYPE
-            // -----------------------------------
             _sectionCard(
               scheme,
               title: "Diabetes type",
@@ -158,9 +156,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 20),
 
-            // -----------------------------------
             //            CARD: INSULIN
-            // -----------------------------------
+
             _sectionCard(
               scheme,
               title: "Insulin usage",
@@ -174,10 +171,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
             ),
 
             const SizedBox(height: 20),
-
-            // -----------------------------------
             //        CARD: GLUCOSE TARGETS
-            // -----------------------------------
+
             _sectionCard(
               scheme,
               title: "Target glucose range (mmol/L)",

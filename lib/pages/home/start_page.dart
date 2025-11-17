@@ -8,6 +8,7 @@ import '../../pages/home/sugar_history_page.dart';
 import '../../pages/home/log_insulin_page.dart';
 import '../../pages/home/bolus_calculator_page.dart';
 import '../../pages/home/insulin_history_page.dart';
+import '../../pages/home/meal_history_page.dart';
 
 final userService = UserService();
 
@@ -174,7 +175,12 @@ class _StartPageState extends State<StartPage> {
                 );
               }),
 
-              _drawerTile(Icons.restaurant_menu_outlined, 'Enter meals', () {}),
+              _drawerTile(Icons.restaurant_menu_outlined, 'Meals & cabs', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MealHistoryPage()),
+                );
+              }),
 
               _drawerTile(Icons.bar_chart_outlined, 'Sugar history', () {
                 Navigator.push(
@@ -237,8 +243,6 @@ class _StartPageState extends State<StartPage> {
                   ],
                 ),
 
-                // 🔹 Элемент-карточка. На светлой теме видна тень,
-                // на тёмной — почти нет (scheme.shadow обычно прозрачен).
                 child: Column(
                   children: [
                     _HomeTile(
@@ -255,6 +259,21 @@ class _StartPageState extends State<StartPage> {
                       },
                     ),
 
+                    const Divider(height: 1),
+
+                    _HomeTile(
+                      icon: Icons.calculate,
+                      title: 'Bolus calculator',
+                      subtitle: 'Smart insulin dose calculator',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BolusCalculatorPage(),
+                          ),
+                        );
+                      },
+                    ),
                     const Divider(height: 1),
 
                     _HomeTile(
@@ -277,6 +296,14 @@ class _StartPageState extends State<StartPage> {
                       icon: Icons.restaurant_menu_outlined,
                       title: 'Meals & carbs',
                       subtitle: 'Track meals and carbs',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MealHistoryPage(),
+                          ),
+                        );
+                      },
                     ),
 
                     const Divider(height: 1),
@@ -294,65 +321,9 @@ class _StartPageState extends State<StartPage> {
                         );
                       },
                     ),
-
-                    _HomeTile(
-                      icon: Icons.calculate,
-                      title: 'Bolus calculator',
-                      subtitle: 'Smart insulin dose calculator',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const BolusCalculatorPage(),
-                          ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {},
-                      icon: Icon(Icons.alarm, color: scheme.primary),
-                      label: Text(
-                        'Reminders',
-                        style: TextStyle(color: scheme.primary),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: scheme.primary, width: 1.4),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.file_download),
-                      label: const Text('Export'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: scheme.primary,
-                        foregroundColor: scheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
             ],
           ),
         ),
