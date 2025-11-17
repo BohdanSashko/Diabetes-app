@@ -13,8 +13,8 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
   final _carbsCtrl = TextEditingController();
   final _glucoseCtrl = TextEditingController();
   final _targetCtrl = TextEditingController(text: "6.0");
-  final _ratioCtrl = TextEditingController(text: "10"); // carbs per 1 unit
-  final _factorCtrl = TextEditingController(text: "2.0"); // mmol/L per 1 unit
+  final _ratioCtrl = TextEditingController(text: "10"); // Соотношение углеводов на 1 единицу инсулина
+  final _factorCtrl = TextEditingController(text: "2.0"); // Коррекционный коэффициент ммоль/л на 1 единицу
 
   double? _result;
   bool _showResult = false;
@@ -30,6 +30,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
     super.dispose();
   }
 
+  // Расчет болюса
   void _calculate() {
     final carbs = double.tryParse(_carbsCtrl.text) ?? 0;
     final glucose = double.tryParse(_glucoseCtrl.text) ?? 0;
@@ -39,10 +40,10 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
 
     if (carbs <= 0 && glucose <= 0) return;
 
-    final mealBolus = carbs / ratio;
-    final correctionBolus = (glucose - target) / factor;
+    final mealBolus = carbs / ratio; // Болюс на еду
+    final correctionBolus = (glucose - target) / factor; // Коррекционный болюс
 
-    final double total = (mealBolus + correctionBolus).clamp(0, 30).toDouble();
+    final double total = (mealBolus + correctionBolus).clamp(0, 30).toDouble(); // Ограничиваем диапазон
 
     setState(() {
       _result = total;
@@ -92,7 +93,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
             const SizedBox(height: 20),
 
             // =======================
-            // Calculate Button
+            // Кнопка расчета
             // =======================
             SizedBox(
               width: double.infinity,
@@ -115,7 +116,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
 
             const SizedBox(height: 24),
 
-            if (_showResult) _resultCard(context),
+            if (_showResult) _resultCard(context), // Показываем карточку с результатом
           ],
         ),
       ),
@@ -123,7 +124,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
   }
 
   // ------------------------------------------------
-  // Gradient top banner
+  // Верхний градиентный баннер
   // ------------------------------------------------
   Widget _gradientHeader(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -163,7 +164,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
   }
 
   // ------------------------------------------------
-  // Input field component
+  // Компонент поля ввода
   // ------------------------------------------------
   Widget _inputField(String label, TextEditingController ctrl, IconData icon) {
     final scheme = Theme.of(context).colorScheme;
@@ -184,7 +185,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
   }
 
   // ------------------------------------------------
-  // Result Card (Animated)
+  // Карточка с результатом (анимированная)
   // ------------------------------------------------
   Widget _resultCard(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -237,13 +238,13 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
                 ),
               ),
               onPressed: () async {
-                await _service.add(
+                await _service.addRecord(
                   _result ?? 0,
                   "bolus",
-                  note: "Calculated automatically",
+                  note: "Calculated automatically", // Сохраняем запись автоматически
                 );
                 if (!mounted) return;
-                Navigator.pop(context);
+                Navigator.pop(context); // Закрываем страницу
               },
             ),
           )

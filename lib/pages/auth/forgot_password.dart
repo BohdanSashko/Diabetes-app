@@ -11,39 +11,45 @@ class ForgotPasswordPage extends StatefulWidget {
 }
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
-  final TextEditingController _emailCtrl = TextEditingController();
-  bool _loading = false;
+  final TextEditingController _emailCtrl = TextEditingController(); // Контроллер для поля email
+  bool _loading = false; // Индикатор загрузки
 
-  final supabase = Supabase.instance.client;
+  final supabase = Supabase.instance.client; // Клиент Supabase
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _emailCtrl.dispose(); // Освобождаем контроллер
     super.dispose();
   }
 
+  // 🔹 Сброс пароля
   Future<void> _resetPassword() async {
     final email = _emailCtrl.text.trim();
 
+    // Проверка на пустое поле
     if (email.isEmpty) {
       _showMsg('Please enter your registered email.', isError: true);
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() => _loading = true); // Включаем индикатор
     try {
+      // Отправка запроса на сброс пароля
       await supabase.auth.resetPasswordForEmail(email);
       if (!mounted) return;
       _showMsg('✅ Password reset email sent to $email.', isError: false);
     } on AuthException catch (e) {
+      // Ошибка аутентификации
       _showMsg('⚠️ ${e.message}', isError: true);
     } catch (e) {
+      // Любая другая ошибка
       _showMsg('⚠️ Unexpected error: ${e.toString()}', isError: true);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false); // Выключаем индикатор
     }
   }
 
+  // 🔹 Показ сообщения пользователю
   void _showMsg(String msg, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -63,7 +69,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black87;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface, // ✅ Dynamic background
+      backgroundColor: colorScheme.surface, // ✅ Динамический фон для темы
       appBar: AppBar(
         title: const Text('Forgot Password'),
         centerTitle: true,
@@ -78,8 +84,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: colorScheme.surface,
-                // ✅ Changes automatically for dark theme
+                color: colorScheme.surface, // Цвет контейнера под тему
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -92,10 +97,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_reset, size: 60, color: colorScheme.primary),
+                  Icon(Icons.lock_reset, size: 60, color: colorScheme.primary), // Иконка сброса пароля
                   const SizedBox(height: 10),
                   Text(
-                    'Reset your password',
+                    'Reset your password', // Заголовок
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
@@ -112,6 +117,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Поле для ввода email
                   TextField(
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
@@ -131,6 +137,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  // Кнопка отправки запроса на сброс пароля
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
@@ -141,13 +148,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       ),
                       label: _loading
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                           : const Text('Send Reset Link'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kBrandBlue,
@@ -162,6 +169,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Кнопка возврата на экран входа
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(

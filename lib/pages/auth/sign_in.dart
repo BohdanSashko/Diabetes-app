@@ -21,8 +21,8 @@ class _SignInPageState extends State<SignInPage> {
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _pwdCtrl = TextEditingController();
 
-  bool _obscure = true;
-  bool _loading = false;
+  bool _obscure = true; // Флаг для скрытия пароля
+  bool _loading = false; // Флаг загрузки
 
   @override
   void dispose() {
@@ -31,6 +31,7 @@ class _SignInPageState extends State<SignInPage> {
     super.dispose();
   }
 
+  // Показываем сообщение об ошибке
   void _error(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -38,9 +39,9 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  // 🔹 Авторизация + проверка профиля
+  // 🔹 Авторизация и проверка наличия профиля пользователя
   Future<void> _signIn() async {
-    FocusScope.of(context).unfocus();
+    FocusScope.of(context).unfocus(); // Скрываем клавиатуру
     final email = _emailCtrl.text.trim();
     final password = _pwdCtrl.text.trim();
 
@@ -49,9 +50,10 @@ class _SignInPageState extends State<SignInPage> {
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() => _loading = true); // Включаем индикатор загрузки
 
     try {
+      // Выполняем вход через Supabase
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -64,20 +66,21 @@ class _SignInPageState extends State<SignInPage> {
           return;
         }
 
-        // ✅ Проверяем, есть ли профиль пользователя
+        // ✅ Проверяем наличие профиля пользователя в базе
         final data = await supabase
             .from('user_profiles')
             .select('diabetes_type')
             .eq('id', user.id)
             .maybeSingle();
 
+        // Сохраняем последний email локально
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('lastEmail', email);
 
         if (!mounted) return;
 
         if (data == null || data['diabetes_type'] == null) {
-          // 🩸 Новый пользователь — показать вопросы
+          // 🩸 Новый пользователь — показываем вопросы перед стартом
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             Future.microtask(() {
@@ -107,7 +110,7 @@ class _SignInPageState extends State<SignInPage> {
             });
           });
         } else {
-          // ✅ Уже есть профиль — сразу на главную
+          // ✅ Профиль уже есть — сразу открываем главную страницу
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             Future.microtask(() {
@@ -125,11 +128,13 @@ class _SignInPageState extends State<SignInPage> {
         _error('Invalid credentials. Please try again.');
       }
     } on AuthException catch (e) {
+      // Обработка ошибок авторизации
       _error(e.message);
     } catch (e) {
+      // Обработка неожиданных ошибок
       _error('Unexpected error: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false); // Выключаем индикатор
     }
   }
 
@@ -147,6 +152,7 @@ class _SignInPageState extends State<SignInPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // Логотип приложения
                 Image.asset(
                   Theme.of(context).brightness == Brightness.dark
                       ? 'assets/images/DiaWell.png'
@@ -163,11 +169,13 @@ class _SignInPageState extends State<SignInPage> {
                 ),
                 const SizedBox(height: 28),
 
+                // Поля для ввода email и пароля
                 textField(_emailCtrl, "Email", false, scheme),
                 const SizedBox(height: 16),
                 textField(_pwdCtrl, "Password", true, scheme),
                 const SizedBox(height: 18),
 
+                // Кнопка входа
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kBrandBlue,
@@ -177,20 +185,21 @@ class _SignInPageState extends State<SignInPage> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  onPressed: _loading ? null : _signIn,
+                  onPressed: _loading ? null : _signIn, // Вызов авторизации
                   child: _loading
                       ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
                       : const Text("Continue"),
                 ),
 
                 const SizedBox(height: 18),
+                // Кнопка регистрации нового пользователя
                 TextButton(
                   onPressed: () => Navigator.push(
                     context,
@@ -201,6 +210,7 @@ class _SignInPageState extends State<SignInPage> {
                     style: TextStyle(color: kBrandBlue),
                   ),
                 ),
+                // Кнопка восстановления пароля
                 TextButton(
                   onPressed: () => Navigator.push(
                     context,
@@ -221,16 +231,16 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  // 🔹 Текстовые поля
+  // 🔹 Компонент текстового поля
   Widget textField(
-    TextEditingController controller,
-    String hint,
-    bool isPassword,
-    ColorScheme scheme,
-  ) {
+      TextEditingController controller,
+      String hint,
+      bool isPassword,
+      ColorScheme scheme,
+      ) {
     return TextField(
       controller: controller,
-      obscureText: isPassword && _obscure,
+      obscureText: isPassword && _obscure, // Скрытие текста для пароля
       textAlign: TextAlign.center,
       decoration: InputDecoration(
         hintText: hint,
@@ -242,12 +252,12 @@ class _SignInPageState extends State<SignInPage> {
         ),
         suffixIcon: isPassword
             ? IconButton(
-                icon: Icon(
-                  _obscure ? Icons.visibility_off : Icons.visibility,
-                  color: scheme.onSurface.withOpacity(0.6),
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              )
+          icon: Icon(
+            _obscure ? Icons.visibility_off : Icons.visibility,
+            color: scheme.onSurface.withOpacity(0.6),
+          ),
+          onPressed: () => setState(() => _obscure = !_obscure), // Переключение видимости
+        )
             : null,
       ),
     );

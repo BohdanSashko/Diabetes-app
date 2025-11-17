@@ -38,11 +38,14 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
         'light' => ThemeMode.light,
         _ => ThemeMode.system,
       };
+
       notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
       autoSync = prefs.getBool('autoSync') ?? true;
       unit = prefs.getString('unit') ?? 'mg/dL';
+
       final timeString = prefs.getString('reminderTime');
       if (timeString != null) {
+        // ⬇️ Распарсиваем строку "HH:MM" в TimeOfDay
         final parts = timeString.split(':');
         reminderTime = TimeOfDay(
           hour: int.parse(parts[0]),
@@ -54,29 +57,41 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
 
   Future<void> _savePrefs() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // ⬇️ Готовим данные времени для сохранения
+    final hour = reminderTime.hour.toString().padLeft(2, '0');
+    final minute = reminderTime.minute.toString().padLeft(2, '0');
+
     await prefs.setString('themeMode', _themeMode.name);
     await prefs.setBool('notificationsEnabled', notificationsEnabled);
     await prefs.setBool('autoSync', autoSync);
     await prefs.setString('unit', unit);
-    await prefs.setString(
-      'reminderTime',
-      '${reminderTime.hour}:${reminderTime.minute}',
-    );
+    await prefs.setString('reminderTime', "$hour:$minute");
   }
 
   Future<void> _pickTime() async {
+    // ⬇️ Показываем встроенный диалог выбора времени
     final picked = await showTimePicker(
       context: context,
       initialTime: reminderTime,
     );
+
     if (picked != null) {
       setState(() => reminderTime = picked);
-      _savePrefs();
+      await _savePrefs();
+
+      // ⬇️ Перепланируем ежедневное уведомление, если уведомления включены
+      if (notificationsEnabled) {
+        await notif.scheduleDaily(picked);
+      }
     }
   }
 
   void _updateTheme(ThemeMode newMode) {
+    // ⬇️ Получаем state из MyApp — это сложный момент
+    // Чтобы изменить глобальную тему, нужно добраться до состояния корневого MyAppState
     final parent = context.findAncestorStateOfType<MyAppState>();
+
     parent?.updateThemeMode(newMode);
     setState(() => _themeMode = newMode);
     _savePrefs();
@@ -124,6 +139,9 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
             value: notificationsEnabled,
             onChanged: (v) async {
               setState(() => notificationsEnabled = v);
+              await _savePrefs();
+
+              // ⬇️ Включаем или выключаем уведомления
               if (v) {
                 await notif.scheduleDaily(reminderTime);
               } else {
@@ -135,18 +153,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
           ListTile(
             title: const Text("Reminder time"),
             subtitle: Text(reminderTime.format(context)),
-            onTap: () async {
-              final picked = await showTimePicker(
-                context: context,
-                initialTime: reminderTime,
-              );
-              if (picked != null) {
-                setState(() => reminderTime = picked);
-                if (notificationsEnabled) {
-                  await notif.scheduleDaily(picked);
-                }
-              }
-            },
+            onTap: _pickTime,
           ),
 
           const Divider(),
@@ -176,14 +183,18 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                 elevation: 4,
               ),
               onPressed: () async {
+                // ⬇️ Полный сброс всех настроек — важная "тяжёлая" операция
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
+
+                // ⬇️ Сброс текущего UI
                 setState(() {
                   _themeMode = ThemeMode.system;
                   notificationsEnabled = true;
                   autoSync = true;
                   unit = 'mg/dL';
                 });
+
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Settings reset to default')),
@@ -244,21 +255,20 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       ],
       selected: {_themeMode},
       onSelectionChanged: (selection) => _updateTheme(selection.first),
+
+      // ⬇️ Кастомная стилизация SegmentedButton (довольно сложный блок)
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) {
             // Цвет активного сегмента
-            return isDark ? scheme.primary : scheme.primary;
+            return scheme.primary;
           }
-          // Цвет неактивного сегмента
           return scheme.surfaceContainerHighest.withOpacity(0.2);
         }),
         foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
           if (states.contains(WidgetState.selected)) {
-            // Цвет текста выбранного сегмента
             return Colors.white;
           }
-          // Цвет текста обычного сегмента
           return isDark ? Colors.white70 : Colors.black87;
         }),
         side: WidgetStateProperty.all(

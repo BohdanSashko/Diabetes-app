@@ -11,7 +11,7 @@ class LogInsulinPage extends StatefulWidget {
 class _LogInsulinPageState extends State<LogInsulinPage> {
   final _service = InsulinService();
   double _units = 4;
-  String _type = "rapid";
+  String _type = "rapid"; // rapid = быстрый, basal = базальный
   final TextEditingController _noteCtrl = TextEditingController();
 
   @override
@@ -22,7 +22,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
     return Scaffold(
       backgroundColor: scheme.surface,
       appBar: AppBar(
-        title: const Text("Log Insulin"),
+        title: const Text("Добавить инсулин"),
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         elevation: 4,
@@ -33,7 +33,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
           children: [
 
             // --------------------------
-            // TYPE SELECT CARD
+            // ВЫБОР ТИПА ИНСУЛИНА
             // --------------------------
             Container(
               padding: const EdgeInsets.all(18),
@@ -56,7 +56,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Insulin type",
+                    "Тип инсулина",
                     style: TextStyle(
                       fontSize: 16,
                       color: scheme.onSurface.withOpacity(0.7),
@@ -66,9 +66,9 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
 
                   Row(
                     children: [
-                      _insulinChip("Rapid", "rapid", Icons.bolt),
+                      _insulinChip("Быстрый", "rapid", Icons.bolt),
                       const SizedBox(width: 12),
-                      _insulinChip("Basal", "basal", Icons.water_drop),
+                      _insulinChip("Базальный", "basal", Icons.water_drop),
                     ],
                   ),
                 ],
@@ -78,7 +78,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
             const SizedBox(height: 22),
 
             // --------------------------
-            // DOSAGE CARD
+            // ДОЗА ИНСУЛИНА
             // --------------------------
             Container(
               padding: const EdgeInsets.all(20),
@@ -96,7 +96,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
               child: Column(
                 children: [
                   Text(
-                    "Dose (units)",
+                    "Доза (единицы)",
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -129,12 +129,12 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
             const SizedBox(height: 22),
 
             // --------------------------
-            // NOTE FIELD
+            // ПОЛЕ ДЛЯ ЗАМЕТКИ
             // --------------------------
             TextField(
               controller: _noteCtrl,
               decoration: InputDecoration(
-                labelText: "Note (optional)",
+                labelText: "Заметка (необязательно)",
                 filled: true,
                 fillColor: scheme.surfaceVariant,
                 border: OutlineInputBorder(
@@ -147,15 +147,15 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
             const Spacer(),
 
             // --------------------------
-            // SAVE BUTTON
+            // КНОПКА СОХРАНЕНИЯ
             // --------------------------
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text("Save"),
+                label: const Text("Сохранить"),
                 onPressed: () async {
-                  await _service.add(
+                  await _service.addRecord(
                     _units,
                     _type,
                     note: _noteCtrl.text,
@@ -181,7 +181,7 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
   }
 
   // --------------------------
-  // Insulin TYPE CHIP
+  // ГРАФИЧЕСКИЕ КНОПКИ ТИПА ИНСУЛИНА
   // --------------------------
   Widget _insulinChip(String label, String value, IconData icon) {
     final isSelected = _type == value;
@@ -208,8 +208,10 @@ class _LogInsulinPageState extends State<LogInsulinPage> {
           ),
           child: Column(
             children: [
-              Icon(icon,
-                  color: isSelected ? scheme.onPrimary : scheme.primary),
+              Icon(
+                icon,
+                color: isSelected ? scheme.onPrimary : scheme.primary,
+              ),
               const SizedBox(height: 4),
               Text(
                 label,

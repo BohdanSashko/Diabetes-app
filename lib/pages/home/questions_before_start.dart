@@ -30,6 +30,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   }
 
   Future<void> _loadUserProfile() async {
+    // 📌 Загружаем профиль пользователя из Supabase через сервис
+    // Если профиль есть — заполняем поля (редактирование, а не только первый вход)
     final profile = await userService.fetchUserProfile();
     if (profile != null) {
       setState(() {
@@ -39,10 +41,11 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         targetHigh = profile.targetHigh;
       });
     }
-    setState(() => _loaded = true);
+    setState(() => _loaded = true); // 📌 Страница готова к отображению
   }
 
   Future<void> _finish() async {
+    // 📌 Проверка на обязательный выбор типа диабета
     if (diabetesType == null || diabetesType!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your diabetes type')),
@@ -52,7 +55,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
     setState(() => _saving = true);
 
-    // ✅ Сохраняем через сервис
+    // 📌 Создаём объект профиля (сложность здесь: собираем данные из UI → модель)
     final profile = UserProfile(
       id: userService.currentUser!.id,
       diabetesType: diabetesType,
@@ -61,13 +64,14 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
       targetHigh: targetHigh,
     );
 
+    // 📌 Отправляем на сервер через сервис (абстракция над Supabase)
     await userService.saveUserProfile(profile);
 
-    // ✅ Сохраняем локальный флаг (чтобы не показывать вопросы снова)
+    // 📌 Локальный флаг, чтобы не показывать вопросы при следующем запуске
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('firstLoginDone', true);
 
-    if (mounted) widget.onFinished();
+    if (mounted) widget.onFinished(); // 📌 Возвращаем в вызывающую страницу
   }
 
   @override
@@ -101,8 +105,11 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+
+            // 📌 Используем initialValue, чтобы корректно показывать данные профиля
             DropdownButtonFormField<String>(
-              initialValue: diabetesType?.isNotEmpty == true ? diabetesType : null,
+              initialValue:
+              diabetesType?.isNotEmpty == true ? diabetesType : null,
               items: const [
                 DropdownMenuItem(value: 'Type 1', child: Text('Type 1')),
                 DropdownMenuItem(value: 'Type 2', child: Text('Type 2')),
@@ -112,10 +119,12 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
               onChanged: (v) => setState(() => diabetesType = v),
               decoration: InputDecoration(
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
             ),
             const SizedBox(height: 20),
+
             SwitchListTile(
               title: const Text('Do you use insulin?'),
               activeThumbColor: kBrandBlue,
@@ -123,16 +132,21 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
               onChanged: (v) => setState(() => usesInsulin = v),
             ),
             const SizedBox(height: 20),
+
             const Text('Target glucose range (mmol/L):'),
             const SizedBox(height: 8),
+
+            // 📌 Поля низ / верх зоны глюкозы → важно сохранить double из строки
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     initialValue: targetLow.toStringAsFixed(1),
                     decoration: const InputDecoration(labelText: 'Low'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) => targetLow = double.tryParse(v) ?? targetLow,
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (v) =>
+                    targetLow = double.tryParse(v) ?? targetLow,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -140,13 +154,16 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                   child: TextFormField(
                     initialValue: targetHigh.toStringAsFixed(1),
                     decoration: const InputDecoration(labelText: 'High'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (v) => targetHigh = double.tryParse(v) ?? targetHigh,
+                    keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (v) =>
+                    targetHigh = double.tryParse(v) ?? targetHigh,
                   ),
                 ),
               ],
             ),
             const Spacer(),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -159,6 +176,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+
+                // 📌 Показываем индикатор, пока сохраняем
                 child: _saving
                     ? const SizedBox(
                   height: 22,

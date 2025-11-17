@@ -1,16 +1,16 @@
 class InsulinRecord {
   final int id;
   final double units;
-  final String type; // rapid, basal
-  final DateTime time;
+  final String type;
   final String? note;
+  final DateTime recorded_at;
 
   InsulinRecord({
     required this.id,
     required this.units,
     required this.type,
-    required this.time,
     this.note,
+    required this.recorded_at,
   });
 
   factory InsulinRecord.fromJson(Map<String, dynamic> json) {
@@ -18,8 +18,8 @@ class InsulinRecord {
       id: json['id'],
       units: (json['units'] as num).toDouble(),
       type: json['type'],
-      time: DateTime.parse(json['time']),
       note: json['note'],
+      recorded_at: DateTime.parse(json['recorded_at']),
     );
   }
 }

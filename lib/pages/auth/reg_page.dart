@@ -4,7 +4,7 @@ import 'verify_email.dart';
 import '../../data/services/user_service.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
-final userService = UserService();
+final userService = UserService(); // Сервис для работы с пользователем
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -14,18 +14,18 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>(); // Ключ формы для валидации
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   final _pwd2Ctrl = TextEditingController();
 
-  bool _obscure1 = true;
-  bool _obscure2 = true;
-  bool _agree = false;
-  bool _loading = false;
+  bool _obscure1 = true; // Скрытие для поля пароля
+  bool _obscure2 = true; // Скрытие для поля подтверждения пароля
+  bool _agree = false; // Флаг согласия с условиями
+  bool _loading = false; // Индикатор загрузки
 
-  final _supabase = Supabase.instance.client;
+  final _supabase = Supabase.instance.client; // Клиент Supabase
 
   @override
   void dispose() {
@@ -36,31 +36,33 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  // 🔹 Регистрация пользователя
   Future<void> _register() async {
+    // Проверка формы и согласия с условиями
     if (!_formKey.currentState!.validate() || !_agree) {
       _showError('Please complete all fields and accept terms.');
       return;
     }
 
-    setState(() => _loading = true);
+    setState(() => _loading = true); // Включаем индикатор
 
     try {
       final name = _nameCtrl.text.trim();
       final email = _emailCtrl.text.trim().toLowerCase();
       final password = _pwdCtrl.text.trim();
 
-      // ✅ Один правильный вызов signUp с deep link
+      // ✅ Регистрация пользователя с deep link для верификации
       final authResponse = await _supabase.auth.signUp(
         email: email,
         password: password,
         emailRedirectTo: 'diabetesapp://login-callback', // deep link
-        data: {'name': name}, // сохраняется в auth.users -> raw_user_meta_data
+        data: {'name': name}, // Сохраняем имя в raw_user_meta_data
       );
 
       final user = authResponse.user;
 
       if (user != null) {
-        // ✅ Показываем экран "проверь почту"
+        // ✅ Показываем экран "Проверьте почту"
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -71,15 +73,17 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
     } on AuthException catch (e) {
+      // Обработка ошибок регистрации
       _showError(e.message);
     } catch (e) {
+      // Обработка неожиданных ошибок
       _showError('Unexpected error: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false); // Выключаем индикатор
     }
   }
 
-
+  // Показываем сообщение об ошибке
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
@@ -117,9 +121,10 @@ class _RegisterPageState extends State<RegisterPage> {
               ],
             ),
             child: Form(
-              key: _formKey,
+              key: _formKey, // Форма с ключом для валидации
               child: Column(
                 children: [
+                  // Поля ввода с валидацией
                   _input(_nameCtrl, 'Full name', Icons.person_outline,
                       _validateName, scheme),
                   const SizedBox(height: 12),
@@ -136,6 +141,8 @@ class _RegisterPageState extends State<RegisterPage> {
                       obscure: _obscure2,
                       toggle: () => setState(() => _obscure2 = !_obscure2)),
                   const SizedBox(height: 12),
+
+                  // Checkbox для согласия с условиями
                   Row(
                     children: [
                       Checkbox(
@@ -152,6 +159,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  // Кнопка регистрации
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -181,6 +190,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // -------------------- Валидация полей --------------------
   String? _validateName(String? v) =>
       (v == null || v.trim().length < 2) ? 'Enter your name' : null;
 
@@ -198,6 +208,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _validatePasswordConfirm(String? v) =>
       (v != _pwdCtrl.text) ? 'Passwords do not match' : null;
 
+  // 🔹 Компонент текстового поля с иконкой и возможностью скрытия
   Widget _input(
       TextEditingController c,
       String hint,
@@ -228,7 +239,7 @@ class _RegisterPageState extends State<RegisterPage> {
             obscure ? Icons.visibility_off : Icons.visibility,
             color: scheme.onSurface.withOpacity(0.6),
           ),
-          onPressed: toggle,
+          onPressed: toggle, // Переключение видимости пароля
         )
             : null,
       ),

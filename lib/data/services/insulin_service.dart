@@ -4,7 +4,8 @@ import 'package:diabetes_app/models/insulin_record.dart';
 class InsulinService {
   final supabase = Supabase.instance.client;
 
-  Future<List<InsulinRecord>> fetch() async {
+  /// Fetch all insulin logs for current user
+  Future<List<InsulinRecord>> fetchRecords() async {
     final user = supabase.auth.currentUser;
     if (user == null) return [];
 
@@ -12,12 +13,13 @@ class InsulinService {
         .from('insulin_records')
         .select()
         .eq('user_id', user.id)
-        .order('time', ascending: false);
+        .order('recorded_at', ascending: false);
 
     return data.map((d) => InsulinRecord.fromJson(d)).toList();
   }
 
-  Future<void> add(double units, String type, {String? note}) async {
+  /// Add new insulin entry
+  Future<void> addRecord(double units, String type, {String? note}) async {
     final user = supabase.auth.currentUser;
     if (user == null) return;
 
@@ -26,11 +28,12 @@ class InsulinService {
       'units': units,
       'type': type,
       'note': note,
-      'time': DateTime.now().toIso8601String(),
+      'recorded_at': DateTime.now().toIso8601String(),
     });
   }
 
-  Future<void> delete(int id) async {
+  /// Delete insulin entry
+  Future<void> deleteRecord(int id) async {
     await supabase.from('insulin_records').delete().eq('id', id);
   }
 }
