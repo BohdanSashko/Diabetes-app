@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/user_service.dart';
+import '../../models/user_model.dart';
+
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
@@ -16,22 +18,25 @@ class DiabetesQuestionPage extends StatefulWidget {
 class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   final userService = UserService();
 
+  /// User profile fields
   String? diabetesType;
   bool usesInsulin = false;
   double targetLow = 4.0;
   double targetHigh = 8.0;
 
-  bool _saving = false;
-  bool _loaded = false;
+  bool _saving = false;    // Prevent double-clicking "Continue"
+  bool _loaded = false;    // Show loader while profile loads
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
+    _loadUserProfile(); // Load saved values if profile exists
   }
 
+  /// Loads user profile from Supabase (if exists)
   Future<void> _loadUserProfile() async {
     final profile = await userService.fetchUserProfile();
+
     if (profile != null) {
       setState(() {
         diabetesType = profile.diabetesType;
@@ -40,10 +45,13 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         targetHigh = profile.targetHigh;
       });
     }
+
     setState(() => _loaded = true);
   }
 
+  /// Called when user taps "Continue"
   Future<void> _finish() async {
+    // User must select diabetes type
     if (diabetesType == null || diabetesType!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your diabetes type')),
@@ -54,6 +62,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     setState(() => _saving = true);
 
     try {
+      // Build the profile object
       final profile = UserProfile(
         id: userService.currentUser!.id,
         diabetesType: diabetesType,
@@ -62,37 +71,44 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         targetHigh: targetHigh,
       );
 
+      // Save to Supabase
       await userService.saveUserProfile(profile);
 
+      // Store local flag so onboarding does not repeat
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('firstLoginDone', true);
 
       if (!mounted) return;
 
-      // ВАЖНО → вызываем после кадра
+      // VERY IMPORTANT:
+      // We call the callback AFTER the current frame.
+      // This avoids: "setState() called after dispose"
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-
-        widget.onFinished();   // ← Переходит в SignInPage или AuthGate
+        widget.onFinished(); // Usually navigates to StartPage
       });
 
     } catch (e) {
+      // Show error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
+
       setState(() => _saving = false);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    /// Show loader until everything is loaded
     if (!_loaded) {
       return Scaffold(
         backgroundColor: scheme.surface,
-        body: const Center(child: CircularProgressIndicator(color: kBrandBlue)),
+        body: const Center(
+          child: CircularProgressIndicator(color: kBrandBlue),
+        ),
       );
     }
 
@@ -104,13 +120,14 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            //         BIG TITLE
+            /// HEADER TEXT
             Text(
               "Tell us about you",
               style: TextStyle(
@@ -120,6 +137,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
               ),
             ),
             const SizedBox(height: 6),
+
             Text(
               "To personalize your experience",
               style: TextStyle(
@@ -130,8 +148,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 28),
 
-
-            //           CARD: DIABETES TYPE
+            /// DIABETES TYPE CARD
             _sectionCard(
               scheme,
               title: "Diabetes type",
@@ -156,8 +173,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 20),
 
-            //            CARD: INSULIN
-
+            /// INSULIN SWITCH CARD
             _sectionCard(
               scheme,
               title: "Insulin usage",
@@ -171,8 +187,8 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
             ),
 
             const SizedBox(height: 20),
-            //        CARD: GLUCOSE TARGETS
 
+            /// TARGET RANGE CARD
             _sectionCard(
               scheme,
               title: "Target glucose range (mmol/L)",
@@ -182,7 +198,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                     child: _smallNumberField(
                       "Low",
                       targetLow,
-                      (v) => targetLow = double.tryParse(v) ?? targetLow,
+                          (v) => targetLow = double.tryParse(v) ?? targetLow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -190,7 +206,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                     child: _smallNumberField(
                       "High",
                       targetHigh,
-                      (v) => targetHigh = double.tryParse(v) ?? targetHigh,
+                          (v) => targetHigh = double.tryParse(v) ?? targetHigh,
                     ),
                   ),
                 ],
@@ -199,8 +215,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const Spacer(),
 
-            //           BOTTOM BUTTON
-
+            /// BOTTOM BUTTON
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -217,16 +232,16 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                 ),
                 child: _saving
                     ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      )
+                  color: Colors.white,
+                  strokeWidth: 2,
+                )
                     : const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  'Continue',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -235,13 +250,13 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
-  //          WIDGET HELPERS FOR STYLING
 
+  /// Beautiful card wrapper for dropdown/switch sections
   Widget _sectionCard(
-    ColorScheme scheme, {
-    required String title,
-    required Widget child,
-  }) {
+      ColorScheme scheme, {
+        required String title,
+        required Widget child,
+      }) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -273,11 +288,12 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
+  /// Numeric text field used for low/high glucose
   Widget _smallNumberField(
-    String label,
-    double value,
-    Function(String) onChanged,
-  ) {
+      String label,
+      double value,
+      Function(String) onChanged,
+      ) {
     final scheme = Theme.of(context).colorScheme;
 
     return TextFormField(
@@ -300,6 +316,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
+  /// Dropdown background styling
   InputDecoration _dropdownDecoration(ColorScheme scheme) {
     return InputDecoration(
       filled: true,

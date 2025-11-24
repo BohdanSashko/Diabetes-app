@@ -91,10 +91,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
             ),
 
             const SizedBox(height: 20),
-
-            // =======================
             // Кнопка расчета
-            // =======================
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -123,9 +120,8 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
     );
   }
 
-  // ------------------------------------------------
+
   // Верхний градиентный баннер
-  // ------------------------------------------------
   Widget _gradientHeader(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -163,9 +159,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
     );
   }
 
-  // ------------------------------------------------
-  // Компонент поля ввода
-  // ------------------------------------------------
+  // Component for input field
   Widget _inputField(String label, TextEditingController ctrl, IconData icon) {
     final scheme = Theme.of(context).colorScheme;
     return TextField(
@@ -184,9 +178,7 @@ class _BolusCalculatorPageState extends State<BolusCalculatorPage>
     );
   }
 
-  // ------------------------------------------------
   // Карточка с результатом (анимированная)
-  // ------------------------------------------------
   Widget _resultCard(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final value = _result?.toStringAsFixed(1) ?? "0.0";

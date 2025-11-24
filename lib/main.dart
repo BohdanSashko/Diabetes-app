@@ -39,10 +39,7 @@ class MyAppState extends State<MyApp> {
     _loadTheme();
     _listenAuthEvents();
   }
-
-  // ---------------------------------------------
   // LOAD SELECTED THEME FROM SHARED PREFERENCES
-  // ---------------------------------------------
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final themeString = prefs.getString('themeMode') ?? 'system';
@@ -125,10 +122,7 @@ class _AuthGateState extends State<AuthGate> {
     super.initState();
     _checkLogin();
   }
-
-  // ---------------------------------------------
   // CHECK LOGIN + local firstLoginDone
-  // ---------------------------------------------
   Future<void> _checkLogin() async {
     final user = Supabase.instance.client.auth.currentUser;
     final prefs = await SharedPreferences.getInstance();

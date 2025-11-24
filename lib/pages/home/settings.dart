@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:diabetes_app/main.dart';
 import 'package:diabetes_app/data/services/notification_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 late NotificationService notif;
 
@@ -16,23 +15,31 @@ class AppSettingsPage extends StatefulWidget {
 }
 
 class _AppSettingsPageState extends State<AppSettingsPage> {
+  /// Current theme setting
   ThemeMode _themeMode = ThemeMode.system;
+
+  /// App settings loaded from SharedPreferences
   bool notificationsEnabled = true;
   bool autoSync = true;
   String unit = 'mg/dL';
+
+  /// Daily reminder time (stored as "HH:MM")
   TimeOfDay reminderTime = const TimeOfDay(hour: 8, minute: 0);
 
   @override
   void initState() {
     super.initState();
-    _loadPrefs();
+    _loadPrefs(); // Load saved settings on launch
   }
 
+  /// Loads all saved user settings from SharedPreferences
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
     final theme = prefs.getString('themeMode') ?? 'system';
+
     setState(() {
+      // Restore selected theme
       _themeMode = switch (theme) {
         'dark' => ThemeMode.dark,
         'light' => ThemeMode.light,
@@ -43,9 +50,9 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       autoSync = prefs.getBool('autoSync') ?? true;
       unit = prefs.getString('unit') ?? 'mg/dL';
 
+      // Restore reminder time
       final timeString = prefs.getString('reminderTime');
       if (timeString != null) {
-        // ⬇️ Распарсиваем строку "HH:MM" в TimeOfDay
         final parts = timeString.split(':');
         reminderTime = TimeOfDay(
           hour: int.parse(parts[0]),
@@ -55,10 +62,10 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     });
   }
 
+  /// Saves the current settings to SharedPreferences
   Future<void> _savePrefs() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ⬇️ Готовим данные времени для сохранения
     final hour = reminderTime.hour.toString().padLeft(2, '0');
     final minute = reminderTime.minute.toString().padLeft(2, '0');
 
@@ -69,8 +76,8 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     await prefs.setString('reminderTime', "$hour:$minute");
   }
 
+  /// Opens a time picker for daily reminders
   Future<void> _pickTime() async {
-    // ⬇️ Показываем встроенный диалог выбора времени
     final picked = await showTimePicker(
       context: context,
       initialTime: reminderTime,
@@ -80,20 +87,20 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       setState(() => reminderTime = picked);
       await _savePrefs();
 
-      // ⬇️ Перепланируем ежедневное уведомление, если уведомления включены
+      // Re-schedule notifications only if user enabled them
       if (notificationsEnabled) {
         await notif.scheduleDaily(picked);
       }
     }
   }
 
+  /// Updates the global app theme (calls MyAppState.updateThemeMode)
   void _updateTheme(ThemeMode newMode) {
-    // ⬇️ Получаем state из MyApp — это сложный момент
-    // Чтобы изменить глобальную тему, нужно добраться до состояния корневого MyAppState
     final parent = context.findAncestorStateOfType<MyAppState>();
 
-    parent?.updateThemeMode(newMode);
+    parent?.updateThemeMode(newMode);  // Apply theme globally
     setState(() => _themeMode = newMode);
+
     _savePrefs();
   }
 
@@ -103,20 +110,24 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
 
     return Scaffold(
       backgroundColor: scheme.surface,
+
       appBar: AppBar(
         title: const Text('Settings'),
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        elevation: 0,
         centerTitle: true,
+        elevation: 0,
       ),
+
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          // APPEARANCE SECTION
           _sectionTitle(context, 'Appearance'),
           _themeSelector(context),
           const Divider(),
 
+          // UNITS SECTION
           _sectionTitle(context, 'Units'),
           DropdownButtonFormField<String>(
             initialValue: unit,
@@ -127,12 +138,15 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
               DropdownMenuItem(value: 'mmol/L', child: Text('mmol/L')),
             ],
             onChanged: (v) {
-              if (v != null) setState(() => unit = v);
-              _savePrefs();
+              if (v != null) {
+                setState(() => unit = v);
+                _savePrefs();
+              }
             },
           ),
           const Divider(),
 
+          // NOTIFICATIONS SECTION
           _sectionTitle(context, 'Notifications'),
           SwitchListTile(
             title: const Text("Enable Daily Reminder"),
@@ -141,7 +155,7 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
               setState(() => notificationsEnabled = v);
               await _savePrefs();
 
-              // ⬇️ Включаем или выключаем уведомления
+              // Enable/disable daily scheduled notification
               if (v) {
                 await notif.scheduleDaily(reminderTime);
               } else {
@@ -153,11 +167,11 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
           ListTile(
             title: const Text("Reminder time"),
             subtitle: Text(reminderTime.format(context)),
-            onTap: _pickTime,
+            onTap: _pickTime, // Use time picker
           ),
 
           const Divider(),
-
+          // DATA SYNC SECTION
           _sectionTitle(context, 'Data Sync'),
           SwitchListTile(
             title: const Text('Auto Sync with Cloud'),
@@ -168,12 +182,23 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
               _savePrefs();
             },
           ),
+
           const SizedBox(height: 20),
 
+
+          // RESET ALL SETTINGS
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text(
+                'Reset to Default',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.white,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -183,11 +208,9 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                 elevation: 4,
               ),
               onPressed: () async {
-                // ⬇️ Полный сброс всех настроек — важная "тяжёлая" операция
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
 
-                // ⬇️ Сброс текущего UI
                 setState(() {
                   _themeMode = ThemeMode.system;
                   notificationsEnabled = true;
@@ -201,25 +224,17 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
                   );
                 }
               },
-              label: const Text(
-                'Reset to Default',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
             ),
           ),
         ],
       ),
     );
   }
-
-  // --- UI helpers ---
+  // UI HELPER
+  /// Section title text with consistent styling
   Widget _sectionTitle(BuildContext context, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
       child: Text(
         text,
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -230,8 +245,10 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
     );
   }
 
+  /// Reusable decoration for dropdowns + input fields
   InputDecoration _inputDecoration(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+
     return InputDecoration(
       filled: true,
       fillColor: scheme.surfaceContainerHighest.withOpacity(0.2),
@@ -239,10 +256,14 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      contentPadding: const EdgeInsets.symmetric(
+        vertical: 14,
+        horizontal: 12,
+      ),
     );
   }
 
+  /// Theme selector (System / Light / Dark) with custom styling
   Widget _themeSelector(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final scheme = Theme.of(context).colorScheme;
@@ -256,16 +277,15 @@ class _AppSettingsPageState extends State<AppSettingsPage> {
       selected: {_themeMode},
       onSelectionChanged: (selection) => _updateTheme(selection.first),
 
-      // ⬇️ Кастомная стилизация SegmentedButton (довольно сложный блок)
+      // Custom segmented button theme
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            // Цвет активного сегмента
-            return scheme.primary;
+            return scheme.primary; // Active segment
           }
           return scheme.surfaceContainerHighest.withOpacity(0.2);
         }),
-        foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return Colors.white;
           }

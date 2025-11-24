@@ -18,13 +18,13 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
   List<SugarRecord> _records = [];
   bool _loading = true;
 
-  String _unit = 'mmol/L'; // 🔹 Храним выбранную единицу измерения (mmol или mg/dL)
+  String _unit = 'mmol/L'; // 🔹 Current unit (mmol/L or mg/dL)
 
   @override
   void initState() {
     super.initState();
-    _loadUnit();      // 🔹 Загружаем единицы измерения из памяти
-    _loadRecords();   // 🔹 Загружаем список записей сахара
+    _loadUnit(); // 🔹 Load saved unit from local storage
+    _loadRecords(); // 🔹 Load glucose records from the database
   }
 
   Future<void> _loadUnit() async {
@@ -32,8 +32,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
     setState(() {
       _unit = prefs.getString('unit') ?? 'mmol/L';
-      // 🔹 Берём сохранённую единицу измерения.
-      //    Это позволяет менять ммоль/мгдл в настройках и отображать правильно.
+      // 🔹 Load saved unit so UI matches the user's preference
     });
   }
 
@@ -42,15 +41,13 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
     setState(() {
       _records = records;
-      _loading = false;
-      // 🔹 После получения данных обновляем экран, убираем индикатор загрузки.
+      _loading = false; // 🔹 Hide loading after data is received
     });
   }
 
   double _convert(double value) {
-    // 🔹 Конвертация значений для отображения.
-    //    В базе ВСЕГДА храним mmol/L для единообразия.
-    //    Если включён mg/dL — преобразуем через коэффициент 18.
+    // 🔹 Convert mmol/L to mg/dL for display
+    //    Database always stores mmol/L
     return _unit == 'mg/dL' ? (value * 18) : value;
   }
 
@@ -64,29 +61,26 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
     await showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor:
-        isDark ? const Color(0xFF1E1E1E) : scheme.surface.withOpacity(0.98),
+        backgroundColor: isDark
+            ? const Color(0xFF1E1E1E)
+            : scheme.surface.withOpacity(0.98),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          "Add sugar record ($_unit)", // 🔹 Показываем текущую единицу измерения
-        ),
+        title: Text("Add sugar record ($_unit)"),
 
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: controller,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: "Glucose ($_unit)",
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
+              decoration: InputDecoration(labelText: "Glucose ($_unit)"),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: noteCtrl,
-              decoration: InputDecoration(
-                labelText: "Note (optional)",
-              ),
+              decoration: InputDecoration(labelText: "Note (optional)"),
             ),
           ],
         ),
@@ -94,7 +88,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
+            child: const Text("Cancel"),
           ),
 
           ElevatedButton(
@@ -102,15 +96,14 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
               final value = double.tryParse(controller.text);
 
               if (value != null) {
-                // 🔹 Приводим к mmol/L, чтобы БД всегда была в одной системе.
-                final mmolValue =
-                _unit == 'mg/dL' ? (value / 18) : value;
+                // 🔹 Convert mg/dL → mmol/L before saving
+                final mmolValue = _unit == 'mg/dL' ? (value / 18) : value;
 
                 await _service.addRecord(mmolValue, note: noteCtrl.text);
 
                 if (context.mounted) {
                   Navigator.pop(context);
-                  _loadRecords(); // 🔹 Обновляем список
+                  _loadRecords(); // 🔹 Refresh data
                 }
               }
             },
@@ -127,18 +120,19 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-      isDark ? const Color(0xFF0E1A24) : scheme.surface.withOpacity(0.95),
+      backgroundColor: isDark
+          ? const Color(0xFF0E1A24)
+          : scheme.surface.withOpacity(0.95),
 
       appBar: AppBar(
-        title: Text("Sugar History ($_unit)"), // 🔹 Единицы в заголовке
+        title: Text("Sugar History ($_unit)"),
         backgroundColor: kBrandBlue,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () async {
-              await _loadUnit();    // 🔹 Пользователь мог поменять единицы в настройках
-              _loadRecords();       // 🔹 Обновляем записи
+              await _loadUnit(); // 🔹 User may change units in settings
+              _loadRecords(); // 🔹 Reload records from database
             },
           ),
         ],
@@ -152,37 +146,38 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
       ),
 
       body: _loading
-          ? const Center(child: CircularProgressIndicator())  // 🔹 Пока идёт запрос к БД
+          ? const Center(
+              child: CircularProgressIndicator(),
+            ) // 🔹 Initial loading
           : _records.isEmpty
           ? Center(
-        child: Text(
-          "No records yet",
-          style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
-        ),
-      )
+              child: Text(
+                "No records yet",
+                style: TextStyle(color: scheme.onSurface.withOpacity(0.7)),
+              ),
+            )
           : RefreshIndicator(
-        // 🔹 Позволяет тянуть вниз, чтобы обновить список
-        onRefresh: () async {
-          await _loadUnit();
-          await _loadRecords();
-        },
-
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildChartCard(), // 🔹 График последних 10 значений
-            const SizedBox(height: 16),
-            ..._records.map(_buildSugarCard),
-          ],
-        ),
-      ),
+              // 🔹 Pull to refresh
+              onRefresh: () async {
+                await _loadUnit();
+                await _loadRecords();
+              },
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildChartCard(), // 🔹 Chart of last 10 values
+                  const SizedBox(height: 16),
+                  ..._records.map(_buildSugarCard),
+                ],
+              ),
+            ),
     );
-  }
+  } //           CHART CARD
 
   Widget _buildChartCard() {
     if (_records.isEmpty) return const SizedBox.shrink();
 
-    // 🔹 Берём НЕ все записи, а только последние 10 — график быстрее и чище
+    // 🔹 Use only last 10 records for clarity
     final lastRecords = _records.take(10).toList().reversed.toList();
 
     return Container(
@@ -200,7 +195,6 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
           const Text("Recent trend", style: TextStyle(color: Colors.white70)),
           const SizedBox(height: 8),
 
-          // 🔹 Линейный график последних значений сахара
           SizedBox(
             height: 180,
             child: LineChart(
@@ -211,23 +205,21 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
                 lineBarsData: [
                   LineChartBarData(
-                    isCurved: true,         // 🔹 Гладкая линия
+                    isCurved: true,
+                    // 🔹 Smooth line
                     color: Colors.white,
                     barWidth: 3,
 
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.white.withOpacity(0.2), // 🔹 Тень под графиком
+                      color: Colors.white.withOpacity(0.2),
                     ),
 
                     dotData: FlDotData(show: false),
 
                     spots: [
                       for (var i = 0; i < lastRecords.length; i++)
-                        FlSpot(
-                          i.toDouble(),
-                          _convert(lastRecords[i].glucose), // 🔹 Конвертируем при отображении
-                        ),
+                        FlSpot(i.toDouble(), _convert(lastRecords[i].glucose)),
                     ],
                   ),
                 ],
@@ -239,23 +231,21 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
     );
   }
 
+  //          SUGAR CARD
   Widget _buildSugarCard(SugarRecord r) {
-    final color = _glucoseColor(r.glucose); // 🔹 Цвет карточки зависит от уровня сахара
-    final icon = _glucoseIcon(r.glucose);   // 🔹 Иконка тоже: низкий / норм / высокий
+    final color = _glucoseColor(r.glucose); // 🔹 Color based on glucose level
+    final icon = _glucoseIcon(r.glucose); // 🔹 Icon based on level
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final bgColor = isDark
-        ? color.withOpacity(0.18)
-        : color.withOpacity(0.12);
+    final bgColor = isDark ? color.withOpacity(0.18) : color.withOpacity(0.12);
 
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    final value = _convert(r.glucose); // 🔹 Всегда преобразуем перед показом
+    final value = _convert(r.glucose); // 🔹 Convert for UI
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         color: bgColor,
@@ -275,7 +265,7 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
         ),
 
         title: Text(
-          "${value.toStringAsFixed(1)} $_unit", // 🔹 Форматированный вывод
+          "${value.toStringAsFixed(1)} $_unit",
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -285,7 +275,6 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
 
         subtitle: Text(
           "${r.measuredAt.toLocal().toString().split('.')[0]}\n${r.note ?? ''}",
-          // 🔹 Дата + заметка. split('.') убирает миллисекунды, оставляя аккуратный формат.
           style: TextStyle(
             color: isDark ? Colors.white70 : Colors.black54,
             height: 1.3,
@@ -297,7 +286,6 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
         trailing: IconButton(
           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
           onPressed: () async {
-            // 🔹 Удаляем запись из БД и обновляем список
             await _service.deleteRecord(r.id);
             _loadRecords();
           },
@@ -306,14 +294,14 @@ class _SugarHistoryPageState extends State<SugarHistoryPage> {
     );
   }
 
-  // 🔹 Цвет в зависимости от уровня сахара
+  // 🔹 Pick card color based on glucose value
   Color _glucoseColor(double value) {
-    if (value < 4.0) return Colors.orangeAccent; // низкий
-    if (value > 10.0) return Colors.redAccent;   // высокий
-    return kBrandBlue;                           // нормальный
+    if (value < 4.0) return Colors.orangeAccent; // Low
+    if (value > 10.0) return Colors.redAccent; // High
+    return kBrandBlue; // Normal
   }
 
-  // 🔹 Иконка в зависимости от уровня сахара
+  // 🔹 Pick icon based on glucose value
   IconData _glucoseIcon(double value) {
     if (value < 4.0) return Icons.warning_amber_rounded;
     if (value > 10.0) return Icons.trending_up_rounded;

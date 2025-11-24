@@ -37,51 +37,48 @@ class _StartPageState extends State<StartPage> {
     _loadUserData();
   }
 
+  /// Loads user info from Supabase Auth and user_profiles table.
+  /// Auth stores only email and metadata — diabetes-related data is inside user_profiles.
   Future<void> _loadUserData() async {
     final user = _supabase.auth.currentUser;
     if (user != null) {
+      // read display name from Auth metadata
       final userName = user.userMetadata?['name'] as String?;
 
+      // read diabetes profile from database
       final profile = await userService.fetchUserProfile();
-      // 🔹 Здесь мы вручную загружаем профиль из таблицы user_profiles.
-      // Supabase auth хранит только email и userMetadata, но НЕ информацию
-      // о диабете. Поэтому необходим отдельный сервис.
 
       setState(() {
         _name = userName ?? '';
         _email = user.email;
         _diabetesType = profile?.diabetesType ?? 'Not specified';
-        // 🔹 setState обязательно, чтобы триггернуть перестроение UI.
       });
     }
   }
 
+  /// Fully signs the user out: clears local storage + Supabase session.
   Future<void> _signOut() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      // 🔹 Чистим локальные данные (например, выбранную тему, кэш профиля).
-
-      await _supabase.auth.signOut();
-      // 🔹 Выходим из Supabase — токен стирается, сессия недействительна.
+      await prefs.clear();        // clear local app settings/cache
+      await _supabase.auth.signOut(); // invalidate session
     } catch (e) {
       debugPrint("Error during sign out: $e");
     }
 
     if (!mounted) return;
-    // 🔹 Страховка: если виджет уничтожён — нельзя обращаться к context.
 
+    // remove all routes and go back to sign-in page
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const SignInPage()),
-      (route) => false,
+          (route) => false,
     );
-    // 🔹 Полностью очищаем стек — пользователь не сможет вернуться назад свайпом.
   }
 
+  /// Utility builder for Drawer items.
   ListTile _drawerTile(IconData icon, String title, VoidCallback onTap) {
     final scheme = Theme.of(context).colorScheme;
-    // 🔹 Удобная "фабрика" ListTile — уменьшает дублирование кода.
 
     return ListTile(
       leading: Icon(icon, color: scheme.primary),
@@ -97,13 +94,15 @@ class _StartPageState extends State<StartPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
+    // If name exists, show "Hi John"; Otherwise, fallback to email.
     final greeting = _name?.isNotEmpty == true
         ? "Hi, $_name"
         : "Hi, ${_email ?? 'Guest'}";
-    // 🔹 Двойная проверка: если имя отсутствует — fallback на email.
 
     return Scaffold(
       backgroundColor: scheme.surface,
+
+      // ---------- APP BAR ----------
       appBar: AppBar(
         title: Text(
           'DiaWell',
@@ -118,12 +117,15 @@ class _StartPageState extends State<StartPage> {
         elevation: 0,
         iconTheme: IconThemeData(color: scheme.primary),
       ),
+
+      // ---------- NAVIGATION DRAWER ----------
       drawer: Drawer(
         child: Container(
           color: scheme.surface,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
+              // User header card
               UserAccountsDrawerHeader(
                 decoration: BoxDecoration(color: scheme.primary),
 
@@ -159,6 +161,7 @@ class _StartPageState extends State<StartPage> {
                 ),
               ),
 
+              // Drawer navigation tiles
               _drawerTile(Icons.calculate, 'Bolus calculator', () {
                 Navigator.push(
                   context,
@@ -175,7 +178,7 @@ class _StartPageState extends State<StartPage> {
                 );
               }),
 
-              _drawerTile(Icons.restaurant_menu_outlined, 'Meals & cabs', () {
+              _drawerTile(Icons.restaurant_menu_outlined, 'Meals & carbs', () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const MealHistoryPage()),
@@ -198,6 +201,7 @@ class _StartPageState extends State<StartPage> {
 
               const Divider(),
 
+              // Sign out
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
                 title: const Text(
@@ -211,12 +215,15 @@ class _StartPageState extends State<StartPage> {
         ),
       ),
 
+      // ---------- MAIN HOME CONTENT ----------
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ListView(
             children: [
               const SizedBox(height: 12),
+
+              // Greeting text
               Center(
                 child: Text(
                   greeting,
@@ -227,8 +234,10 @@ class _StartPageState extends State<StartPage> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
 
+              // Main card with home actions
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -274,6 +283,7 @@ class _StartPageState extends State<StartPage> {
                         );
                       },
                     ),
+
                     const Divider(height: 1),
 
                     _HomeTile(
@@ -332,6 +342,7 @@ class _StartPageState extends State<StartPage> {
   }
 }
 
+/// Reusable home menu tile widget.
 class _HomeTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -351,14 +362,13 @@ class _HomeTile extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: onTap ?? () {},
+      onTap: onTap ?? () {},    // avoid null errors
 
-      // 🔹 Если обработчик отсутствует, ставим пустой callback,
-      // чтобы InkWell не ломался и сохранял эффект нажатия.
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
           children: [
+            // icon container
             Container(
               width: 42,
               height: 42,
@@ -367,12 +377,11 @@ class _HomeTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: scheme.primary),
-              // 🔹 Отдельный контейнер под иконку — современный UI-паттерн,
-              // улучшает читаемость и делает элементы интерфейса структурированными.
             ),
 
             const SizedBox(width: 12),
 
+            // title + subtitle
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,7 +407,6 @@ class _HomeTile extends StatelessWidget {
             ),
 
             Icon(Icons.chevron_right, color: scheme.onSurface.withOpacity(0.5)),
-            // 🔹 Стрелка указывает на переход, визуально упрощая UX.
           ],
         ),
       ),
