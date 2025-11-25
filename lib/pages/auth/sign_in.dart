@@ -81,44 +81,30 @@ class _SignInPageState extends State<SignInPage> {
 
         if (data == null || data['diabetes_type'] == null) {
           // 🩸 Новый пользователь — показываем вопросы перед стартом
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            Future.microtask(() {
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DiabetesQuestionPage(
-                      onFinished: () async {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => StartPage(
-                              initialEmail: user.email ?? '',
-                            ),
-                          ),
-                        );
-                      },
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DiabetesQuestionPage(
+                onFinished: () {
+                  if (!mounted) return;
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StartPage(initialEmail: user.email ?? ''),
                     ),
-                  ),
-                );
-              }
-            });
-          });
+                  );
+                },
+              ),
+            ),
+          );
+
         } else {
           // ✅ Профиль уже есть — сразу открываем главную страницу
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            Future.microtask(() {
-              if (mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (_) => StartPage(initialEmail: email),
-                  ),
-                );
-              }
-            });
-          });
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => StartPage(initialEmail: email)),
+          );
+
         }
       } else {
         _error('Invalid credentials. Please try again.');

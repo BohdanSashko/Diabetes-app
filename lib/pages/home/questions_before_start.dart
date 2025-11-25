@@ -1,15 +1,17 @@
+// questions_before_start.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/user_service.dart';
 import '../../models/user_model.dart';
-
+import '../home/start_page.dart';
 
 const Color kBrandBlue = Color(0xFF009FCC);
 
 class DiabetesQuestionPage extends StatefulWidget {
-  final VoidCallback onFinished;
+  // kept for compatibility; page will navigate itself after save
+  final VoidCallback? onFinished;
 
-  const DiabetesQuestionPage({super.key, required this.onFinished});
+  const DiabetesQuestionPage({super.key, this.onFinished});
 
   @override
   State<DiabetesQuestionPage> createState() => _DiabetesQuestionPageState();
@@ -18,41 +20,39 @@ class DiabetesQuestionPage extends StatefulWidget {
 class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   final userService = UserService();
 
-  /// User profile fields
+  // profile fields
+  String? name;
   String? diabetesType;
   bool usesInsulin = false;
   double targetLow = 4.0;
   double targetHigh = 8.0;
 
-  bool _saving = false;    // Prevent double-clicking "Continue"
-  bool _loaded = false;    // Show loader while profile loads
+  bool _saving = false;
+  bool _loaded = false;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile(); // Load saved values if profile exists
+    _loadUserProfile();
   }
 
-  /// Loads user profile from Supabase (if exists)
   Future<void> _loadUserProfile() async {
     final profile = await userService.fetchUserProfile();
-
     if (profile != null) {
       setState(() {
+        name = profile.name;
         diabetesType = profile.diabetesType;
         usesInsulin = profile.usesInsulin;
         targetLow = profile.targetLow;
         targetHigh = profile.targetHigh;
       });
     }
-
     setState(() => _loaded = true);
   }
 
-  /// Called when user taps "Continue"
   Future<void> _finish() async {
-    // User must select diabetes type
     if (diabetesType == null || diabetesType!.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your diabetes type')),
       );
@@ -62,38 +62,42 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     setState(() => _saving = true);
 
     try {
-      // Build the profile object
+      // build profile using current user id & metadata where available
       final profile = UserProfile(
         id: userService.currentUser!.id,
+        name: userService.currentUser!.userMetadata?['name'] as String?,
         diabetesType: diabetesType,
         usesInsulin: usesInsulin,
         targetLow: targetLow,
         targetHigh: targetHigh,
       );
 
-      // Save to Supabase
+      // Save to Supabase (await!)
       await userService.saveUserProfile(profile);
 
-      // Store local flag so onboarding does not repeat
+      // Save local flag so questions won't show again
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('firstLoginDone', true);
 
+      // If widget was unmounted while saving, stop here
       if (!mounted) return;
 
-      // VERY IMPORTANT:
-      // We call the callback AFTER the current frame.
-      // This avoids: "setState() called after dispose"
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        widget.onFinished(); // Usually navigates to StartPage
-      });
-
-    } catch (e) {
-      // Show error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+      // Navigate using THIS page's context (safe). Use pushReplacement to StartPage.
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) =>
+              StartPage(initialEmail: userService.currentUser?.email ?? ''),
+        ),
       );
 
+      // optionally call callback if provided (but don't rely on caller's context)
+      // NOTE: do NOT call a caller-captured context for navigation — keep this optional
+      widget.onFinished?.call();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
       setState(() => _saving = false);
     }
   }
@@ -102,13 +106,10 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    /// Show loader until everything is loaded
     if (!_loaded) {
       return Scaffold(
         backgroundColor: scheme.surface,
-        body: const Center(
-          child: CircularProgressIndicator(color: kBrandBlue),
-        ),
+        body: const Center(child: CircularProgressIndicator(color: kBrandBlue)),
       );
     }
 
@@ -120,14 +121,12 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            /// HEADER TEXT
+            // header
             Text(
               "Tell us about you",
               style: TextStyle(
@@ -137,7 +136,6 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
               ),
             ),
             const SizedBox(height: 6),
-
             Text(
               "To personalize your experience",
               style: TextStyle(
@@ -145,10 +143,9 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                 color: scheme.onSurface.withOpacity(0.6),
               ),
             ),
-
             const SizedBox(height: 28),
 
-            /// DIABETES TYPE CARD
+            // diabetes type
             _sectionCard(
               scheme,
               title: "Diabetes type",
@@ -173,7 +170,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 20),
 
-            /// INSULIN SWITCH CARD
+            // insulin usage
             _sectionCard(
               scheme,
               title: "Insulin usage",
@@ -188,7 +185,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const SizedBox(height: 20),
 
-            /// TARGET RANGE CARD
+            // target range
             _sectionCard(
               scheme,
               title: "Target glucose range (mmol/L)",
@@ -198,7 +195,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                     child: _smallNumberField(
                       "Low",
                       targetLow,
-                          (v) => targetLow = double.tryParse(v) ?? targetLow,
+                      (v) => targetLow = double.tryParse(v) ?? targetLow,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -206,7 +203,7 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                     child: _smallNumberField(
                       "High",
                       targetHigh,
-                          (v) => targetHigh = double.tryParse(v) ?? targetHigh,
+                      (v) => targetHigh = double.tryParse(v) ?? targetHigh,
                     ),
                   ),
                 ],
@@ -215,7 +212,6 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
 
             const Spacer(),
 
-            /// BOTTOM BUTTON
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -232,16 +228,16 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
                 ),
                 child: _saving
                     ? const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                )
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      )
                     : const Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                        'Continue',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -250,13 +246,11 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
-
-  /// Beautiful card wrapper for dropdown/switch sections
   Widget _sectionCard(
-      ColorScheme scheme, {
-        required String title,
-        required Widget child,
-      }) {
+    ColorScheme scheme, {
+    required String title,
+    required Widget child,
+  }) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -288,14 +282,12 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
-  /// Numeric text field used for low/high glucose
   Widget _smallNumberField(
-      String label,
-      double value,
-      Function(String) onChanged,
-      ) {
+    String label,
+    double value,
+    Function(String) onChanged,
+  ) {
     final scheme = Theme.of(context).colorScheme;
-
     return TextFormField(
       initialValue: value.toStringAsFixed(1),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -316,7 +308,6 @@ class _DiabetesQuestionPageState extends State<DiabetesQuestionPage> {
     );
   }
 
-  /// Dropdown background styling
   InputDecoration _dropdownDecoration(ColorScheme scheme) {
     return InputDecoration(
       filled: true,

@@ -3,11 +3,12 @@
 
 class UserProfile {
   final String id;
+  final String? name;
   final String? diabetesType;
   final bool usesInsulin;
   final double targetLow;
   final double targetHigh;
-  final String? name;
+
 
   UserProfile({
     required this.id,
@@ -18,7 +19,6 @@ class UserProfile {
     this.targetHigh = 8.0,
   });
 
-  /// Конструктор з JSON
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as String,

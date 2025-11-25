@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 const Color kBrandBlue = Color(0xFF009FCC);
 
 class VerifyEmailPage extends StatefulWidget {
@@ -14,114 +15,118 @@ class VerifyEmailPage extends StatefulWidget {
 class _VerifyEmailPageState extends State<VerifyEmailPage> {
   bool _isLoading = false;
 
-  // Функция повторной отправки письма с подтверждением
   Future<void> _resendVerificationEmail() async {
     setState(() => _isLoading = true);
     try {
-      // Отправляем письмо через Supabase
       await Supabase.instance.client.auth.resend(
         type: OtpType.signup,
         email: widget.userEmail,
       );
 
-      if (mounted) {
-        // Показываем сообщение об успешной отправке
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ A new verification email has been sent.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A new verification email has been sent.'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } on AuthException catch (e) {
-      if (mounted) {
-        // Показываем ошибку авторизации
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ ${e.message}'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        // Показываем сообщение о неизвестной ошибке
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ An unexpected error occurred.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unexpected error'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false); // Снимаем индикатор загрузки
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE3F4FA), // Фоновый цвет страницы
+      backgroundColor:
+      isDark ? scheme.surface : const Color(0xFFE3F4FA),
+
       appBar: AppBar(
         title: const Text("Verify Your Email"),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        automaticallyImplyLeading: false, // Отключаем кнопку назад
+
+        // ✅ Кнопка назад
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back,
+              color: isDark ? Colors.white : Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
+
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Иконка письма
-              const Icon(
+              Icon(
                 Icons.mark_email_read_outlined,
                 size: 80,
                 color: kBrandBlue,
               ),
               const SizedBox(height: 24),
 
-              // Текст инструкции
-              const Text(
+              Text(
                 'A verification link has been sent to:',
-                style: TextStyle(fontSize: 16),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: scheme.onSurface,
+                ),
                 textAlign: TextAlign.center,
               ),
+
               const SizedBox(height: 8),
 
-              // Отображаем email пользователя
               Text(
                 widget.userEmail,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: scheme.onSurface,
                 ),
               ),
+
               const SizedBox(height: 24),
 
-              // Дополнительная инструкция
-              const Text(
-                'Please click the link in the email to continue. You can close this page.',
+              Text(
+                'Please click the link in the email to continue.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(
+                  color: scheme.onSurface.withOpacity(0.7),
+                ),
               ),
+
               const SizedBox(height: 32),
 
-              // Кнопка повторной отправки письма
               ElevatedButton.icon(
                 onPressed: _isLoading ? null : _resendVerificationEmail,
                 icon: _isLoading
-                    ? Container(
-                  width: 24,
-                  height: 24,
-                  padding: const EdgeInsets.all(2.0),
-                  child: const CircularProgressIndicator(
+                    ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
                     color: Colors.white,
-                    strokeWidth: 3,
+                    strokeWidth: 2,
                   ),
                 )
                     : const Icon(Icons.send_outlined),
@@ -129,8 +134,10 @@ class _VerifyEmailPageState extends State<VerifyEmailPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kBrandBlue,
                   foregroundColor: Colors.white,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
